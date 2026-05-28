@@ -8,6 +8,7 @@ const navItems = [
   { to: '/schedule', label: 'Schedule', authRequired: true },
   { to: '/leaderboards', label: 'Leaderboards' },
   { to: '/profile', label: 'Profile', authRequired: true },
+  { to: '/admin', label: 'Admin', authRequired: true, adminOnly: true },
 ];
 
 function Navbar() {
@@ -22,7 +23,7 @@ function Navbar() {
 
       <nav>
         {navItems
-          .filter((item) => !item.authRequired || user)
+          .filter((item) => (!item.authRequired || user) && (!item.adminOnly || (user && user.isAdmin)))
           .map((item) => (
             <NavLink
               key={item.to}

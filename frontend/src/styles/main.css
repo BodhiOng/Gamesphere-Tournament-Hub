@@ -224,6 +224,75 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.admin-column {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.admin-quick-nav {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-quick-nav .nav-chip {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(147, 194, 255, 0.03);
+  color: var(--muted);
+  border: 1px solid rgba(147, 194, 255, 0.06);
+}
+
+.admin-quick-nav .nav-chip:hover {
+  color: var(--ink);
+  background: rgba(147, 194, 255, 0.06);
+}
+
+/* Side nav layout for admin */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1rem;
+}
+
+.admin-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-self: start;
+  position: sticky;
+  top: 88px; /* offset for sticky top navbar */
+}
+
+.admin-side-nav .nav-chip {
+  display: block;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+@media (max-width: 980px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-side-nav {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* ensure anchored sections are visible below sticky navbar */
+.admin-column section {
+  scroll-margin-top: 96px;
+}
+
 .stack-list {
   display: grid;
   gap: 0.9rem;
@@ -331,6 +400,26 @@ select:focus {
 
 .table-shell {
   overflow-x: auto;
+}
+
+/* Admin account requests table tweaks */
+.auth-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.auth-table th,
+.auth-table td {
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid rgba(147, 194, 255, 0.08);
+  text-align: left;
+  vertical-align: middle;
+}
+.auth-table th {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.auth-table td:last-child {
+  width: 220px;
 }
 
 table {
