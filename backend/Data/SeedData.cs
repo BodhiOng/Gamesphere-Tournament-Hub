@@ -47,7 +47,7 @@ namespace Gamesphere.Data
 
         public static void ResetAndSeedSampleData(AppDbContext ctx)
         {
-            ctx.Database.EnsureCreated();
+            ctx.Database.Migrate();
 
             using var transaction = ctx.Database.BeginTransaction();
 
@@ -56,6 +56,21 @@ namespace Gamesphere.Data
 
             ctx.SaveChanges();
             transaction.Commit();
+        }
+
+        public static void EnsureMigrationHistoryForLegacySchema(AppDbContext ctx)
+        {
+            try
+            {
+                ctx.Database.ExecuteSqlRaw("SELECT 1 FROM \"Leaderboards\" LIMIT 1");
+            }
+            catch
+            {
+                return;
+            }
+
+            ctx.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (\"MigrationId\" character varying(150) NOT NULL, \"ProductVersion\" character varying(32) NOT NULL, CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY (\"MigrationId\"))");
+            ctx.Database.ExecuteSqlRaw("INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ('20260527125235_InitialCreate', '10.0.8') ON CONFLICT (\"MigrationId\") DO NOTHING");
         }
 
         private static void ClearExistingData(AppDbContext ctx)

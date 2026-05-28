@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 function Register() {
@@ -22,8 +22,8 @@ function Register() {
     setError('');
 
     try {
-      await register(form);
-      navigate('/dashboard');
+      const response = await register(form);
+      navigate('/login', { state: { message: response.message } });
     } catch (err) {
       setError(err.message);
     }
@@ -32,6 +32,9 @@ function Register() {
   return (
     <main className="auth-shell">
       <form className="auth-card" onSubmit={onSubmit}>
+        <div className="auth-top-actions">
+          <NavLink to="/" className="inline-link">← Home</NavLink>
+        </div>
         <h2>Create your competitor account</h2>
         <label>
           Username
@@ -51,6 +54,7 @@ function Register() {
         </label>
         {error && <p className="error-text">{error}</p>}
         <button type="submit" className="primary-btn">Register</button>
+        <p className="login-prompt">Already registered? <NavLink to="/login">Log in</NavLink></p>
       </form>
     </main>
   );

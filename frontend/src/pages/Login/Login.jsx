@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
 
@@ -27,7 +28,11 @@ function Login() {
   return (
     <main className="auth-shell">
       <form className="auth-card" onSubmit={onSubmit}>
+        <div className="auth-top-actions">
+          <NavLink to="/" className="inline-link">← Home</NavLink>
+        </div>
         <h2>Welcome back, contender</h2>
+        {location.state?.message && <p className="success-text">{location.state.message}</p>}
         <label>
           Email
           <input name="email" type="email" onChange={onChange} value={form.email} required />
@@ -38,6 +43,7 @@ function Login() {
         </label>
         {error && <p className="error-text">{error}</p>}
         <button type="submit" className="primary-btn">Log in</button>
+        <p className="signup-prompt">Not a user yet? <NavLink to="/register">Create account</NavLink></p>
       </form>
     </main>
   );

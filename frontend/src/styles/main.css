@@ -56,15 +56,40 @@ a {
   min-height: 100vh;
 }
 
+/* Add horizontal padding app-wide and center page content */
+.app-shell {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
 .gs-navbar {
   display: grid;
   grid-template-columns: 240px 1fr 220px;
   gap: 1rem;
   align-items: center;
-  padding: 1rem 1.5rem;
+  /* make navbar span edge-to-edge despite app-wide padding */
+  padding: 1rem 0;
+  width: calc(100% + 1.5rem); /* counter app-shell horizontal padding (0.75rem * 2) */
+  margin-left: -0.75rem;
+  margin-right: -0.75rem;
   border-bottom: 1px solid var(--panel-border);
   background: rgba(2, 11, 21, 0.62);
   backdrop-filter: blur(8px);
+}
+
+/* inner padding for navbar columns so content doesn't touch edges */
+.gs-navbar > .brand-block,
+.gs-navbar > nav,
+.gs-navbar > .user-tools {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+/* Keep the navbar on top so it doesn't get overlapped by side panels */
+.gs-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .brand-chip {
@@ -73,6 +98,14 @@ a {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+}
+
+/* Keep the site title on a single line */
+.brand-block h1 {
+  white-space: nowrap;
+  display: inline-block;
+  font-size: 1.6rem; /* slightly smaller to reduce chance of overflow */
+  line-height: 1;
 }
 
 .gs-navbar nav {
@@ -114,22 +147,35 @@ button {
   gap: 0.7rem;
 }
 
+/* Keep login/create buttons on a single row */
+.user-tools {
+  flex-wrap: nowrap;
+}
+
+/* Ensure button-like links don't expand or wrap */
+.ghost-btn,
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 .content-shell {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 1rem;
+  display: block;
   padding: 1rem;
 }
 
-.gs-sidebar {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  box-shadow: var(--glow);
+/* Ensure page content clears the sticky navbar when needed */
+.content-shell {
+  margin-top: 0.25rem;
+}
+
+.panel-title {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--accent-2);
+  margin-bottom: 0.5rem;
 }
 
 .panel-title {
@@ -144,10 +190,13 @@ button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  padding: 1rem 1.5rem; /* horizontal breathing room */
+  max-width: 1200px;
+  margin: 0 auto; /* center content */
 }
 
 .page-shell.wide {
-  padding: 1rem;
+  padding: 1.25rem 2rem;
 }
 
 .surface-card {
@@ -318,6 +367,47 @@ td {
   box-shadow: var(--glow);
 }
 
+.auth-top-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.25rem;
+}
+
+.signup-prompt {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.signup-prompt a {
+  color: var(--accent-2);
+  margin-left: 0.35rem;
+}
+
+.login-prompt {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.login-prompt a {
+  color: var(--accent-2);
+  margin-left: 0.35rem;
+}
+
+/* Make primary buttons in auth forms full-width and center their text */
+.auth-card .primary-btn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  padding: 0.6rem 1rem;
+  min-height: 44px;
+}
+
+.auth-card .ghost-btn {
+  white-space: nowrap;
+}
+
 .auth-card label {
   display: grid;
   gap: 0.35rem;
@@ -365,13 +455,9 @@ td {
   }
 
   .content-shell {
-    grid-template-columns: 1fr;
+    display: block;
   }
 
-  .gs-sidebar {
-    flex-direction: row;
-    overflow-x: auto;
-  }
 
   .grid.two,
   .grid.three,

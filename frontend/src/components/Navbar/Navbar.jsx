@@ -3,11 +3,11 @@ import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { to: '/', label: 'Home' },
-  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/dashboard', label: 'Dashboard', authRequired: true },
   { to: '/tournaments', label: 'Tournaments' },
-  { to: '/schedule', label: 'Schedule' },
+  { to: '/schedule', label: 'Schedule', authRequired: true },
   { to: '/leaderboards', label: 'Leaderboards' },
-  { to: '/profile', label: 'Profile' },
+  { to: '/profile', label: 'Profile', authRequired: true },
 ];
 
 function Navbar() {
@@ -21,17 +21,19 @@ function Navbar() {
       </div>
 
       <nav>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              isActive ? 'nav-link nav-link-active' : 'nav-link'
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
+        {navItems
+          .filter((item) => !item.authRequired || user)
+          .map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                isActive ? 'nav-link nav-link-active' : 'nav-link'
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
       </nav>
 
       <div className="user-tools">
@@ -43,9 +45,14 @@ function Navbar() {
             </button>
           </>
         ) : (
-          <NavLink to="/login" className="ghost-btn">
-            Log in
-          </NavLink>
+          <>
+            <NavLink to="/login" className="ghost-btn">
+              Log in
+            </NavLink>
+            <NavLink to="/register" className="primary-btn">
+              Create account
+            </NavLink>
+          </>
         )}
       </div>
     </header>

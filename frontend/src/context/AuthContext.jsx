@@ -16,9 +16,7 @@ export function AuthProvider({ children }) {
         return response;
       },
       async register(payload) {
-        const newUser = await registerUser(payload);
-        setUser(newUser);
-        return newUser;
+        return registerUser(payload);
       },
       logout() {
         setUser(null);

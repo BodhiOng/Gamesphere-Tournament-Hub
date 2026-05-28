@@ -13,5 +13,6 @@ namespace Gamesphere.Data
         public DbSet<Match> Matches => Set<Match>();
         public DbSet<Registration> Registrations => Set<Registration>();
         public DbSet<Leaderboard> Leaderboards => Set<Leaderboard>();
+        public DbSet<AccountRequest> AccountRequests => Set<AccountRequest>();
     }
 }

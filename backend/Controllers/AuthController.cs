@@ -4,6 +4,7 @@ using Gamesphere.DTOs;
 using Gamesphere.Models;
 using Microsoft.AspNetCore.Identity;
 using System.Linq;
+using System;
 
 namespace Gamesphere.Controllers
 {
@@ -25,6 +26,20 @@ namespace Gamesphere.Controllers
             var user = _ctx.Users.FirstOrDefault(item => item.Email == dto.Email);
             if (user == null)
             {
+                var pendingRequest = _ctx.AccountRequests.FirstOrDefault(item => item.Email == dto.Email);
+                if (pendingRequest != null)
+                {
+                    var pendingVerification = _passwordHasher.VerifyHashedPassword(new User(), pendingRequest.PasswordHash, dto.Password);
+                    if (pendingVerification != PasswordVerificationResult.Failed)
+                    {
+                        return StatusCode(403, pendingRequest.Status switch
+                        {
+                            AccountRequestStatus.Rejected => "Your account request was rejected.",
+                            _ => "Your account request is pending admin approval."
+                        });
+                    }
+                }
+
                 return Unauthorized("Invalid email or password.");
             }
 
@@ -54,33 +69,35 @@ namespace Gamesphere.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterDTO dto)
         {
-            if (_ctx.Users.Any(user => user.Email == dto.Email))
+            var hasApprovedAccount = _ctx.Users.Any(user => user.Email == dto.Email);
+            var hasPendingRequest = _ctx.AccountRequests.Any(request => request.Email == dto.Email && request.Status == AccountRequestStatus.Pending);
+
+            if (hasApprovedAccount || hasPendingRequest)
             {
-                return Conflict("An account with this email already exists.");
+                return Conflict("An account request with this email already exists.");
             }
 
-            var user = new User
+            var request = new AccountRequest
             {
                 Username = dto.Username,
                 Email = dto.Email,
-                CreatedAt = System.DateTime.UtcNow
+                GamerTag = string.IsNullOrWhiteSpace(dto.GamerTag) ? dto.Username : dto.GamerTag,
+                RequestedAt = DateTime.UtcNow,
+                Status = AccountRequestStatus.Pending
             };
-            user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
+            request.PasswordHash = _passwordHasher.HashPassword(new User(), dto.Password);
 
-            _ctx.Users.Add(user);
+            _ctx.AccountRequests.Add(request);
             _ctx.SaveChanges();
 
-            return Ok(new
+            return Accepted(new
             {
-                token = "dev-token",
-                user = new
-                {
-                    user.Id,
-                    user.Username,
-                    user.Email,
-                    gamerTag = dto.GamerTag ?? dto.Username,
-                    isAdmin = false
-                }
+                request.Id,
+                request.Username,
+                request.Email,
+                gamerTag = request.GamerTag,
+                status = request.Status.ToString(),
+                message = "Your account request was submitted and is waiting for admin approval."
             });
         }
     }
