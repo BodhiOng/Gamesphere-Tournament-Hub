@@ -1,38 +1,20 @@
-const wait = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5286';
+
+async function request(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    ...options,
+  });
+  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  return res.status === 204 ? null : res.json();
+}
 
 export async function loginUser({ email, password }) {
-  await wait();
-
-  if (!email || !password) {
-    throw new Error('Email and password are required.');
-  }
-
-  return {
-    token: 'mock-jwt-token',
-    user: {
-      id: 'u-1001',
-      username: 'acecaptain',
-      email,
-      gamerTag: 'AceCaptain',
-      role: 'player',
-    },
-  };
+  if (!email || !password) throw new Error('Email and password are required.');
+  return request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 }
 
 export async function registerUser(payload) {
-  await wait();
-
-  const { username, email, password, gamerTag } = payload;
-
-  if (!username || !email || !password || !gamerTag) {
-    throw new Error('All registration fields are required.');
-  }
-
-  return {
-    id: 'u-1002',
-    username,
-    email,
-    gamerTag,
-    role: 'player',
-  };
+  return request('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) });
 }

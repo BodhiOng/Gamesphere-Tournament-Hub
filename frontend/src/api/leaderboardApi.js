@@ -1,10 +1,35 @@
-const leaderboard = [
-  { rank: 1, team: 'Nova Core', wins: 14, losses: 2, points: 42, kd: 1.39 },
-  { rank: 2, team: 'Quantum Five', wins: 12, losses: 4, points: 37, kd: 1.24 },
-  { rank: 3, team: 'Arc Syndicate', wins: 11, losses: 5, points: 34, kd: 1.19 },
-  { rank: 4, team: 'Velocity Unit', wins: 9, losses: 7, points: 28, kd: 1.06 },
-];
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5286';
+import { mockLeaderboardRows } from './mockData';
+
+async function request(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
+  if (!res.ok) throw new Error((await res.text()) || res.statusText);
+  return res.status === 204 ? null : res.json();
+}
+
+function normalizeLeaderboardRow(row, index) {
+  if (!row || typeof row !== 'object') {
+    return mockLeaderboardRows[index] ?? mockLeaderboardRows[0];
+  }
+
+  const fallback = mockLeaderboardRows[index] ?? mockLeaderboardRows[0];
+
+  return {
+    rank: row.rank ?? fallback.rank,
+    team: row.team ?? row.name ?? fallback.team,
+    wins: row.wins ?? fallback.wins,
+    losses: row.losses ?? fallback.losses,
+    points: row.points ?? fallback.points,
+    kd: row.kd ?? fallback.kd,
+  };
+}
 
 export async function getLeaderboard() {
-  return Promise.resolve(leaderboard);
+  try {
+    const data = await request('/api/leaderboard');
+    const rows = Array.isArray(data) ? data.map(normalizeLeaderboardRow) : [];
+    return rows.length > 0 ? rows : mockLeaderboardRows;
+  } catch {
+    return mockLeaderboardRows;
+  }
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getTournaments } from '../api/tournamentApi';
+import { mockTournaments } from '../api/mockData';
 
 const TournamentContext = createContext(null);
 
@@ -9,7 +10,8 @@ export function TournamentProvider({ children }) {
 
   useEffect(() => {
     getTournaments()
-      .then((data) => setTournaments(data))
+      .then((data) => setTournaments(data.length > 0 ? data : mockTournaments))
+      .catch(() => setTournaments(mockTournaments))
       .finally(() => setIsLoading(false));
   }, []);
 
