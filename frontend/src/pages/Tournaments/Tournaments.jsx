@@ -7,6 +7,27 @@ function Tournaments() {
   const [filters, setFilters] = useState({ search: '', game: 'all', region: 'all', status: 'all' });
   const [selectedTournament, setSelectedTournament] = useState(null);
 
+  const truncatePreview = (value, maxLength = 220) => {
+    const text = (value || '').trim();
+    if (!text) return 'No description available for this tournament yet.';
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength).trimEnd()}...`;
+  };
+
+  const formatStart = (value) => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString();
+  };
+
+  const formatDateOnly = (value) => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString();
+  };
+
   const filterOptions = useMemo(() => {
     const games = new Set();
     const regions = new Set();
@@ -36,11 +57,14 @@ function Tournaments() {
   const filtered = useMemo(() => {
     return tournaments.filter((item) => {
       const name = item?.name || '';
+      const description = item?.description || '';
       const game = item?.game || '';
       const region = item?.region || '';
       const status = item?.status || '';
 
-      const bySearch = name.toLowerCase().includes(filters.search.trim().toLowerCase());
+      const query = filters.search.trim().toLowerCase();
+      const bySearch = name.toLowerCase().includes(query)
+        || description.toLowerCase().includes(query);
       const byGame = filters.game === 'all' || item.game === filters.game;
       const byRegion = filters.region === 'all' || item.region === filters.region;
       const byStatus = filters.status === 'all' || item.status === filters.status;
@@ -94,15 +118,34 @@ function Tournaments() {
 
         {filtered.map((item) => (
           <div key={item.id} className="surface-card tournament-list-item">
-            <div className="tournament-list-main">
-              <h3>{item.name || 'Untitled Tournament'}</h3>
-              <p>
-                {item.game || '-'} | {item.region || '-'} | {item.status || '-'}
-              </p>
-              <p>
-                Start: {item.startDate || '-'} | Prize: {item.prizePool || '-'}
-              </p>
+            <span className="status-pill tournament-card-status">{item.status || 'Unknown'}</span>
+
+            <div className="tournament-list-media">
+              {item.image ? (
+                <img src={item.image} alt={item.name || 'Tournament'} className="tournament-list-image" />
+              ) : (
+                <div className="tournament-list-image-placeholder">No image</div>
+              )}
             </div>
+
+            <div className="tournament-list-main">
+              <div className="tournament-list-header">
+                <h3>{item.name || 'Untitled Tournament'}</h3>
+              </div>
+
+              <p className="tournament-list-description">
+                {truncatePreview(item.description)}
+              </p>
+
+              <div className="tournament-list-meta-chips">
+                <span>{item.game || '-'}</span>
+                <span>{item.region || '-'}</span>
+                <span>Slots: {item.teamSlots ?? '-'}</span>
+                <span>Prize: {item.prizePool || '-'}</span>
+                <span>Date: {formatDateOnly(item.startDate)}</span>
+              </div>
+            </div>
+
             <div className="tournament-list-actions">
               <button type="button" className="primary-btn" onClick={() => setSelectedTournament(item)}>
                 View Details
@@ -122,18 +165,59 @@ function Tournaments() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="card-header">
-              <h3>{selectedTournament.name || 'Untitled Tournament'}</h3>
+              <div>
+                <h3>{selectedTournament.name || 'Untitled Tournament'}</h3>
+              </div>
               <button type="button" className="ghost-btn" onClick={() => setSelectedTournament(null)}>Close</button>
             </div>
 
+            <div className="tournament-modal-layout">
+              <article className="tournament-modal-image-panel">
+                {selectedTournament.image ? (
+                  <img src={selectedTournament.image} alt={selectedTournament.name || 'Tournament'} className="tournament-modal-image" />
+                ) : (
+                  <div className="tournament-modal-image-placeholder">No image provided</div>
+                )}
+              </article>
+
+              <article className="tournament-modal-copy-panel">
+                <h4>Description</h4>
+                <p className="tournament-modal-description">{selectedTournament.description || 'No description available.'}</p>
+              </article>
+            </div>
+
+            <dl className="tournament-modal-meta-grid">
+              <div className="tournament-modal-meta-item">
+                <dt>Game</dt>
+                <dd>{selectedTournament.game || '-'}</dd>
+              </div>
+              <div className="tournament-modal-meta-item">
+                <dt>Region</dt>
+                <dd>{selectedTournament.region || '-'}</dd>
+              </div>
+              <div className="tournament-modal-meta-item">
+                <dt>Status</dt>
+                <dd>{selectedTournament.status || '-'}</dd>
+              </div>
+              <div className="tournament-modal-meta-item">
+                <dt>Start Date</dt>
+                <dd>{formatStart(selectedTournament.startDate)}</dd>
+              </div>
+              <div className="tournament-modal-meta-item">
+                <dt>Prize Pool</dt>
+                <dd>{selectedTournament.prizePool || '-'}</dd>
+              </div>
+              <div className="tournament-modal-meta-item">
+                <dt>Team Slots</dt>
+                <dd>{selectedTournament.teamSlots ?? '-'}</dd>
+              </div>
+              <div className="tournament-modal-meta-item">
+                <dt>Teams Registered</dt>
+                <dd>{selectedTournament.teamsCount ?? 0}</dd>
+              </div>
+            </dl>
+
             <div className="tournament-modal-grid">
-              <p><strong>Game:</strong> {selectedTournament.game || '-'}</p>
-              <p><strong>Region:</strong> {selectedTournament.region || '-'}</p>
-              <p><strong>Status:</strong> {selectedTournament.status || '-'}</p>
-              <p><strong>Start Date:</strong> {selectedTournament.startDate || '-'}</p>
-              <p><strong>Prize Pool:</strong> {selectedTournament.prizePool || '-'}</p>
-              <p><strong>Team Slots:</strong> {selectedTournament.teamSlots ?? '-'}</p>
-              <p><strong>Teams Registered:</strong> {selectedTournament.teamsCount ?? 0}</p>
               <p><strong>Public ID:</strong> {selectedTournament.publicId || '-'}</p>
             </div>
           </article>

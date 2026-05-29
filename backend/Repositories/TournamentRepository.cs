@@ -48,6 +48,9 @@ namespace Gamesphere.Repositories
             existing.Name = t.Name;
             existing.StartDate = t.StartDate;
             existing.TeamSlots = t.TeamSlots;
+            existing.Title = t.Title;
+            existing.Image = t.Image;
+            existing.Description = t.Description;
             existing.Game = t.Game;
             existing.Region = t.Region;
             existing.Status = t.Status;

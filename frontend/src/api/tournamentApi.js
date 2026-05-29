@@ -15,6 +15,8 @@ function normalizeTournament(item) {
     id: item.id,
     publicId: item.publicId,
     name: item.name,
+    image: item.image,
+    description: item.description,
     game: item.game,
     region: item.region,
     status: item.status,
@@ -50,6 +52,8 @@ export async function createTournament(payload) {
       method: 'POST',
       body: JSON.stringify({
         Name: payload.name,
+        Image: payload.image,
+        Description: payload.description,
         StartDate: payload.startDate,
         TeamSlots: payload.teamSlots,
         Game: payload.game,

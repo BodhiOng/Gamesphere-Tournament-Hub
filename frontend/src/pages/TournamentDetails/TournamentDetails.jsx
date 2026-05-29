@@ -31,6 +31,14 @@ function TournamentDetails() {
     <section>
       <h2>{tournament.name}</h2>
       <p style={{ fontFamily: 'monospace', marginTop: '0.25rem' }}>ID: {tournament.publicId || tournament.id}</p>
+      {tournament.image ? (
+        <img
+          src={tournament.image}
+          alt={tournament.name || 'Tournament'}
+          style={{ marginTop: '0.75rem', width: '100%', maxWidth: '460px', maxHeight: '260px', objectFit: 'cover', borderRadius: '0.6rem' }}
+        />
+      ) : null}
+      {tournament.description ? <p style={{ marginTop: '0.75rem' }}>{tournament.description}</p> : null}
       <div style={{ marginTop: '0.6rem' }}>
         <button type="button" className="ghost-btn" onClick={() => setDeleteOpen(true)}>Delete Tournament</button>
       </div>

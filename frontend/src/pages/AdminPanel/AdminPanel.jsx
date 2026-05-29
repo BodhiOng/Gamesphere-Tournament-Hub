@@ -128,6 +128,8 @@ function AdminPanel() {
 
   // Create tournament form state
   const [tName, setTName] = useState('');
+  const [tImage, setTImage] = useState('');
+  const [tDescription, setTDescription] = useState('');
   const [tStartDate, setTStartDate] = useState('');
   const [tStartTime, setTStartTime] = useState('');
   const [tSlots, setTSlots] = useState(16);
@@ -155,6 +157,8 @@ function AdminPanel() {
 
       const payload = {
         name: tName,
+        image: tImage || null,
+        description: tDescription || null,
         startDate: startDateTime,
         teamSlots: Number(tSlots),
         game: tGame || null,
@@ -165,6 +169,8 @@ function AdminPanel() {
 
       await createTournament(payload);
       setTName('');
+      setTImage('');
+      setTDescription('');
       setTStartDate('');
       setTStartTime('');
       setTSlots(16);
@@ -204,6 +210,7 @@ function AdminPanel() {
     if (!q) return true;
     return String(t.publicId || t.id).toLowerCase().includes(q)
       || (t.name || '').toLowerCase().includes(q)
+      || (t.description || '').toLowerCase().includes(q)
       || (t.game || '').toLowerCase().includes(q)
       || (t.region || '').toLowerCase().includes(q);
   });
@@ -314,9 +321,9 @@ function AdminPanel() {
 
             {/* Create modal */}
             {createOpen && (
-              <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
-                <div style={{ width: 'min(720px, 96%)' }}>
-                  <section className="surface-card">
+              <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'start center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
+                <div style={{ width: 'min(980px, 96%)' }}>
+                  <section className="surface-card tournament-form-modal" style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h3>Create tournament</h3>
                       <div>
@@ -324,10 +331,20 @@ function AdminPanel() {
                       </div>
                     </div>
 
-                    <form onSubmit={async (e) => { await handleCreateTournament(e); setCreateOpen(false); }} style={{ marginTop: '1rem', display: 'grid', gap: '0.6rem' }}>
+                    <form onSubmit={async (e) => { await handleCreateTournament(e); setCreateOpen(false); }} className="tournament-modal-form">
                       <label>
                         Tournament name
                         <input value={tName} onChange={(e) => setTName(e.target.value)} placeholder="Name" required />
+                      </label>
+
+                      <label>
+                        Image URL
+                        <input value={tImage} onChange={(e) => setTImage(e.target.value)} placeholder="https://..." />
+                      </label>
+
+                      <label className="field-full">
+                        Description
+                        <textarea value={tDescription} onChange={(e) => setTDescription(e.target.value)} placeholder="Tournament description" rows={3} />
                       </label>
 
                       <label>
@@ -376,9 +393,9 @@ function AdminPanel() {
                         <input type="number" min="2" max="1024" value={tSlots} onChange={(e) => setTSlots(e.target.value)} required />
                       </label>
 
-                      {createError && <p className="error-text">{createError}</p>}
+                      {createError && <p className="error-text field-full">{createError}</p>}
 
-                      <div className="cta-row">
+                      <div className="cta-row field-full">
                         <button type="submit" className="primary-btn" disabled={creating}>Create Tournament</button>
                       </div>
                     </form>
@@ -411,24 +428,71 @@ function AdminPanel() {
 
           {/* Details modal */}
           {selected && (
-            <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
-              <div style={{ width: 'min(760px, 96%)' }}>
-                <section className="surface-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3>Tournament details</h3>
+            <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'start center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
+              <div style={{ width: 'min(1080px, 97%)' }}>
+                <section className="surface-card tournament-view-modal" style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto' }}>
+                  <div className="card-header">
+                    <div>
+                      <h3>Tournament details</h3>
+                      <p className="tournament-view-subtitle">{selected.name || 'Untitled Tournament'}</p>
+                    </div>
                     <div>
                       <button className="ghost-btn" onClick={() => setSelected(null)}>Close</button>
                     </div>
                   </div>
-                  <dl style={{ marginTop: '1rem' }}>
-                    <div><strong>ID:</strong> {selected.publicId || selected.id}</div>
-                    <div><strong>Name:</strong> {selected.name}</div>
-                    <div><strong>Game:</strong> {selected.game ?? '-'}</div>
-                    <div><strong>Region:</strong> {selected.region ?? '-'}</div>
-                    <div><strong>Start:</strong> {formatDate(selected.startDate)}</div>
-                    <div><strong>Team slots:</strong> {selected.teamSlots ?? '-'}</div>
-                    <div><strong>Prize pool:</strong> {selected.prizePool ?? '-'}</div>
-                    <div><strong>Status:</strong> {selected.status ?? '-'}</div>
+
+                  <div className="tournament-view-layout">
+                    <article className="tournament-view-image-panel">
+                      {selected.image ? (
+                        <img
+                          src={selected.image}
+                          alt={selected.name || 'Tournament'}
+                          className="tournament-view-image"
+                        />
+                      ) : (
+                        <div className="tournament-view-image-placeholder">No image provided</div>
+                      )}
+                    </article>
+
+                    <article className="tournament-view-copy-panel">
+                      <h4>Description</h4>
+                      <p className="tournament-view-description">{selected.description || 'No description available.'}</p>
+                    </article>
+                  </div>
+
+                  <dl className="tournament-view-meta-grid">
+                    <div className="tournament-view-meta-item">
+                      <dt>ID</dt>
+                      <dd>{selected.publicId || selected.id}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Name</dt>
+                      <dd>{selected.name || '-'}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Game</dt>
+                      <dd>{selected.game || '-'}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Region</dt>
+                      <dd>{selected.region || '-'}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Start</dt>
+                      <dd>{formatDate(selected.startDate)}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Team slots</dt>
+                      <dd>{selected.teamSlots ?? '-'}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Prize pool</dt>
+                      <dd>{selected.prizePool ?? '-'}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Status</dt>
+                      <dd>{selected.status || '-'}</dd>
+                    </div>
                   </dl>
                 </section>
               </div>
@@ -588,6 +652,8 @@ function EditTournament({ id, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [name, setName] = useState('');
+  const [image, setImage] = useState('');
+  const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [teamSlots, setTeamSlots] = useState(16);
@@ -603,6 +669,8 @@ function EditTournament({ id, onClose }) {
         const t = await getTournamentById(id);
         if (!ignore) {
           setName(t.name || '');
+          setImage(t.image || '');
+          setDescription(t.description || '');
           setStartDate(formatDateInputValue(t.startDate));
           setStartTime(formatTimeInputValue(t.startDate));
           setTeamSlots(t.teamSlots ?? t.teamSlots ?? 16);
@@ -634,6 +702,8 @@ function EditTournament({ id, onClose }) {
 
       await updateTournament(id, {
         Name: name,
+        Image: image || null,
+        Description: description || null,
         StartDate: startDateTime,
         TeamSlots: Number(teamSlots),
         Game: game || null,
@@ -648,9 +718,9 @@ function EditTournament({ id, onClose }) {
   };
 
   return (
-    <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
-      <div style={{ width: 'min(720px, 96%)' }}>
-        <section className="surface-card">
+    <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'start center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
+      <div style={{ width: 'min(980px, 96%)' }}>
+        <section className="surface-card tournament-form-modal" style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3>Edit tournament</h3>
             <div>
@@ -661,10 +731,20 @@ function EditTournament({ id, onClose }) {
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <form onSubmit={handleSave} style={{ marginTop: '1rem', display: 'grid', gap: '0.6rem' }}>
+            <form onSubmit={handleSave} className="tournament-modal-form">
               <label>
                 Name
                 <input value={name} onChange={(e) => setName(e.target.value)} required />
+              </label>
+
+              <label>
+                Image URL
+                <input value={image} onChange={(e) => setImage(e.target.value)} />
+              </label>
+
+              <label className="field-full">
+                Description
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
               </label>
 
               <label>
@@ -713,9 +793,9 @@ function EditTournament({ id, onClose }) {
                 </select>
               </label>
 
-              {error && <p className="error-text">{error}</p>}
+              {error && <p className="error-text field-full">{error}</p>}
 
-              <div className="cta-row">
+              <div className="cta-row field-full">
                 <button type="submit" className="primary-btn">Save</button>
               </div>
             </form>

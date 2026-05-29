@@ -9,6 +9,9 @@ namespace Gamesphere.Models
         public string PublicId { get; set; } = null!;
         public string Name { get; set; } = null!;
         public DateTime StartDate { get; set; }
+        public string? Title { get; set; }
+        public string? Image { get; set; }
+        public string? Description { get; set; }
         // new fields
         public string? Game { get; set; }
         public string? Region { get; set; }
