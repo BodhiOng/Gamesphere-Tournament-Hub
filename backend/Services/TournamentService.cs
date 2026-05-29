@@ -18,5 +18,15 @@ namespace Gamesphere.Services
             _repo.Add(t);
             return t;
         }
+
+        public Tournament? Update(int id, Tournament t)
+        {
+            return _repo.Update(id, t);
+        }
+
+        public bool Delete(int id, bool cascade = false)
+        {
+            return _repo.Delete(id, cascade);
+        }
     }
 }

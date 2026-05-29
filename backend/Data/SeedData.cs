@@ -148,23 +148,26 @@ namespace Gamesphere.Data
             {
                 new Tournament
                 {
+                    PublicId = "TRN-VALOR001",
                     Name = "Valor Clash Spring Cup",
                     StartDate = new DateTime(2026, 5, 28, 18, 0, 0, DateTimeKind.Utc),
-                    MaxTeams = 8,
+                    TeamSlots = 8,
                     Teams = new System.Collections.Generic.List<Team> { novaCore, quantumFive }
                 },
                 new Tournament
                 {
+                    PublicId = "TRN-APEX0001",
                     Name = "Apex Rift Championship",
                     StartDate = new DateTime(2026, 6, 3, 17, 0, 0, DateTimeKind.Utc),
-                    MaxTeams = 8,
+                    TeamSlots = 8,
                     Teams = new System.Collections.Generic.List<Team> { arcSyndicate, velocityUnit }
                 },
                 new Tournament
                 {
+                    PublicId = "TRN-SUMM0001",
                     Name = "Summoner Series Circuit",
                     StartDate = new DateTime(2026, 6, 8, 16, 0, 0, DateTimeKind.Utc),
-                    MaxTeams = 8,
+                    TeamSlots = 8,
                     Teams = new System.Collections.Generic.List<Team> { zenithForge, hyperionPulse }
                 }
             };

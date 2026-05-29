@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
@@ -8,11 +8,17 @@ const navItems = [
   { to: '/schedule', label: 'Schedule', authRequired: true },
   { to: '/leaderboards', label: 'Leaderboards' },
   { to: '/profile', label: 'Profile', authRequired: true },
-  { to: '/admin', label: 'Admin', authRequired: true, adminOnly: true },
+  { to: '/admin', label: 'Admin Panel', authRequired: true, adminOnly: true },
 ];
 
 function Navbar() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  // determine which nav items to show based on role
+  const isAdmin = !!user?.isAdmin;
+  const displayedItems = isAdmin
+    ? navItems.filter((item) => item.to === '/admin' || item.to === '/profile')
+    : navItems.filter((item) => (!item.authRequired || user) && !item.adminOnly);
 
   return (
     <header className="gs-navbar">
@@ -22,26 +28,31 @@ function Navbar() {
       </div>
 
       <nav>
-        {navItems
-          .filter((item) => (!item.authRequired || user) && (!item.adminOnly || (user && user.isAdmin)))
-          .map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                isActive ? 'nav-link nav-link-active' : 'nav-link'
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+        {displayedItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              isActive ? 'nav-link nav-link-active' : 'nav-link'
+            }
+          >
+            {item.label}
+          </NavLink>
+        ))}
       </nav>
 
       <div className="user-tools">
         {user ? (
           <>
             <span>{user.gamerTag}</span>
-            <button type="button" onClick={logout} className="ghost-btn">
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                navigate('/', { replace: true });
+              }}
+              className="ghost-btn"
+            >
               Log out
             </button>
           </>

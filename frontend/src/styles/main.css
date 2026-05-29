@@ -190,13 +190,13 @@ button {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1rem 1.5rem; /* horizontal breathing room */
-  max-width: 1200px;
+  padding: 1rem 0.9rem; /* reduced horizontal breathing room */
+  max-width: 1800px; /* allow content to spread more without reaching edges */
   margin: 0 auto; /* center content */
 }
 
 .page-shell.wide {
-  padding: 1.25rem 2rem;
+  padding: 1.25rem 1rem;
 }
 
 .surface-card {
@@ -233,16 +233,23 @@ button {
 .admin-quick-nav {
   display: flex;
   gap: 0.6rem;
-  margin-bottom: 1rem;
+  margin: 0 0 1.25rem 0;
   flex-wrap: wrap;
+  justify-content: center; /* center the horizontal bar */
+  width: 100%;
+  padding: 0 0.75rem;
 }
 
 .admin-quick-nav .nav-chip {
-  padding: 0.45rem 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.95rem;
   border-radius: 999px;
   background: rgba(147, 194, 255, 0.03);
   color: var(--muted);
   border: 1px solid rgba(147, 194, 255, 0.06);
+  margin: 0 0.25rem;
 }
 
 .admin-quick-nav .nav-chip:hover {
@@ -250,20 +257,24 @@ button {
   background: rgba(147, 194, 255, 0.06);
 }
 
+/* active state for selected admin chip */
+.admin-quick-nav .nav-chip.active,
+.admin-quick-nav .nav-chip[aria-pressed="true"] {
+  color: var(--ink);
+  background: rgba(147, 194, 255, 0.10);
+  border-color: var(--panel-border);
+}
+
 /* Side nav layout for admin */
 .admin-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 1fr; /* single column now that sidebar removed */
   gap: 1rem;
 }
 
+
 .admin-side-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-self: start;
-  position: sticky;
-  top: 88px; /* offset for sticky top navbar */
+  display: none; /* legacy sidebar hidden when using horizontal quick-nav */
 }
 
 .admin-side-nav .nav-chip {
@@ -291,6 +302,10 @@ button {
 /* ensure anchored sections are visible below sticky navbar */
 .admin-column section {
   scroll-margin-top: 96px;
+  max-width: 1200px; /* keep feature window centered and reasonably narrow */
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 .stack-list {
@@ -320,7 +335,7 @@ button {
   margin-top: 1rem;
   display: flex;
   gap: 0.6rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* keep action buttons on a single row */
 }
 
 .primary-btn,
@@ -419,7 +434,8 @@ select:focus {
   font-size: 0.95rem;
 }
 .auth-table td:last-child {
-  width: 220px;
+  width: auto;
+  min-width: 260px; /* ensure action column can contain buttons on one row */
 }
 
 table {
@@ -500,6 +516,24 @@ td {
 .auth-card label {
   display: grid;
   gap: 0.35rem;
+}
+
+/* Align label text and input on a single row with horizontal spacing for forms */
+.surface-card form label,
+.auth-card form label,
+.auth-card label {
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .surface-card form label,
+  .auth-card form label,
+  .auth-card label {
+    grid-template-columns: 1fr;
+  }
 }
 
 .error-text {

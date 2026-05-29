@@ -21,3 +21,7 @@ export async function approveAccountRequest(id) {
 export async function rejectAccountRequest(id) {
   return request(`/api/admin/account-requests/${id}/reject`, { method: 'POST' });
 }
+
+export async function deleteAccountRequest(id) {
+  return request(`/api/admin/account-requests/${id}`, { method: 'DELETE' });
+}

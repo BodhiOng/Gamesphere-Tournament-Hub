@@ -6,10 +6,6 @@ function AdminLayout() {
     <div className="app-shell">
       <Navbar />
       <main className="page-shell wide">
-        <section className="surface-card">
-          <h2>Admin Operations</h2>
-          <p>Manage tournaments, users, moderation, and match integrity workflows.</p>
-        </section>
         <Outlet />
       </main>
     </div>

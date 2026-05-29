@@ -1,5 +1,4 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5286';
-import { mockTournaments, mockTournamentById } from './mockData';
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
@@ -12,17 +11,17 @@ function normalizeTournament(item) {
     return null;
   }
 
-  const fallback = mockTournamentById[item.id] || mockTournaments[0];
-
   return {
-    id: item.id ?? fallback.id,
-    name: item.name ?? fallback.name,
-    game: item.game ?? fallback.game,
-    region: item.region ?? fallback.region,
-    status: item.status ?? fallback.status,
-    prizePool: item.prizePool ?? fallback.prizePool,
-    startDate: item.startDate ?? fallback.startDate,
-    teamSlots: item.teamSlots ?? fallback.teamSlots,
+    id: item.id,
+    publicId: item.publicId,
+    name: item.name,
+    game: item.game,
+    region: item.region,
+    status: item.status,
+    prizePool: item.prizePool,
+    startDate: item.startDate,
+    teamSlots: item.teamSlots,
+    teamsCount: Array.isArray(item.teams) ? item.teams.length : (item.teamsCount ?? 0),
   };
 }
 
@@ -30,17 +29,49 @@ export async function getTournaments() {
   try {
     const data = await request('/api/tournament');
     const tournaments = Array.isArray(data) ? data.map(normalizeTournament).filter(Boolean) : [];
-    return tournaments.length > 0 ? tournaments : mockTournaments;
+    return tournaments;
   } catch {
-    return mockTournaments;
+    return [];
   }
 }
 
 export async function getTournamentById(id) {
   try {
     const data = await request(`/api/tournament/${id}`);
-    return normalizeTournament(data) ?? mockTournamentById[id] ?? mockTournaments[0];
+    return normalizeTournament(data);
   } catch {
-    return mockTournamentById[id] ?? mockTournaments[0];
+    return null;
   }
+}
+
+export async function createTournament(payload) {
+  try {
+    const data = await request('/api/tournament', {
+      method: 'POST',
+      body: JSON.stringify({
+        Name: payload.name,
+        StartDate: payload.startDate,
+        TeamSlots: payload.teamSlots,
+        Game: payload.game,
+        Region: payload.region,
+        Status: payload.status,
+        PrizePool: payload.prizePool,
+      }),
+    });
+    return normalizeTournament(data);
+  } catch (err) {
+    throw err;
+  }
+}
+
+export async function updateTournament(id, payload) {
+  return request(`/api/tournament/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTournament(id, cascade = false) {
+  const qs = cascade ? '?cascade=true' : '';
+  return request(`/api/tournament/${id}${qs}`, { method: 'DELETE' });
 }

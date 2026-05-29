@@ -34,11 +34,45 @@ namespace Gamesphere.Controllers
             {
                 Name = dto.Name,
                 StartDate = dto.StartDate,
-                MaxTeams = dto.MaxTeams
+                TeamSlots = dto.TeamSlots,
+                Game = dto.Game,
+                Region = dto.Region,
+                Status = dto.Status,
+                PrizePool = dto.PrizePool
             };
 
             var created = _service.Create(entity);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        }
+
+        [HttpPut("{id}")]
+        public IActionResult Update(int id, [FromBody] TournamentDTO dto)
+        {
+            if (dto == null) return BadRequest();
+            if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+            var entity = new Tournament
+            {
+                Name = dto.Name,
+                StartDate = dto.StartDate,
+                TeamSlots = dto.TeamSlots,
+                Game = dto.Game,
+                Region = dto.Region,
+                Status = dto.Status,
+                PrizePool = dto.PrizePool
+            };
+
+            var updated = _service.Update(id, entity);
+            if (updated == null) return NotFound();
+            return Ok(updated);
+        }
+
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id, [FromQuery] bool cascade = false)
+        {
+            var ok = _service.Delete(id, cascade);
+            if (!ok) return NotFound();
+            return NoContent();
         }
     }
 }

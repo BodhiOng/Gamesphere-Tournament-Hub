@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Gamesphere.Data;
 using Gamesphere.DTOs;
 using Gamesphere.Models;
+using Gamesphere.Utilities;
 using Microsoft.AspNetCore.Identity;
 using System.Linq;
 using System;
@@ -85,6 +86,15 @@ namespace Gamesphere.Controllers
                 RequestedAt = DateTime.UtcNow,
                 Status = AccountRequestStatus.Pending
             };
+
+            string publicId;
+            do
+            {
+                publicId = IdGenerator.GenerateAccountRequestPublicId();
+            }
+            while (_ctx.AccountRequests.Any(item => item.PublicId == publicId));
+
+            request.PublicId = publicId;
             request.PasswordHash = _passwordHasher.HashPassword(new User(), dto.Password);
 
             _ctx.AccountRequests.Add(request);
@@ -92,12 +102,13 @@ namespace Gamesphere.Controllers
 
             return Accepted(new
             {
-                request.Id,
+                id = request.PublicId,
+                request.PublicId,
                 request.Username,
                 request.Email,
                 gamerTag = request.GamerTag,
                 status = request.Status.ToString(),
-                message = "Your account request was submitted and is waiting for admin approval."
+                message = "Account creation review is pending. You can use your account once it is approved by an admin."
             });
         }
     }

@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import AdminLayout from '../layouts/AdminLayout';
 import MainLayout from '../layouts/MainLayout';
 import AdminPanel from '../pages/AdminPanel/AdminPanel';
@@ -13,6 +14,34 @@ import TeamManagement from '../pages/TeamManagement/TeamManagement';
 import TournamentDetails from '../pages/TournamentDetails/TournamentDetails';
 import Tournaments from '../pages/Tournaments/Tournaments';
 
+function RequireAdmin({ children }) {
+  const { user, isAuthReady } = useAuth();
+
+  if (!isAuthReady) {
+    return null;
+  }
+
+  if (!user || !user.isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+function RedirectAdminFromDashboard({ children }) {
+  const { user, isAuthReady } = useAuth();
+
+  if (!isAuthReady) {
+    return null;
+  }
+
+  if (user?.isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return children;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -21,7 +50,7 @@ function AppRoutes() {
 
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<RedirectAdminFromDashboard><Dashboard /></RedirectAdminFromDashboard>} />
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:id" element={<TournamentDetails />} />
         <Route path="/team-management" element={<TeamManagement />} />
@@ -31,7 +60,7 @@ function AppRoutes() {
       </Route>
 
       <Route element={<AdminLayout />}>
-        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin" element={<RequireAdmin><AdminPanel /></RequireAdmin>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

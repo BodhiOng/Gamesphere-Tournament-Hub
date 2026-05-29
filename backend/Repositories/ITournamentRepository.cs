@@ -8,5 +8,7 @@ namespace Gamesphere.Repositories
         IEnumerable<Tournament> GetAll();
         Tournament? Get(int id);
         void Add(Tournament t);
+        Tournament? Update(int id, Tournament t);
+        bool Delete(int id, bool cascade = false);
     }
 }

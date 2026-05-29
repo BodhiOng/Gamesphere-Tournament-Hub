@@ -32,7 +32,8 @@ namespace Gamesphere.Controllers
                 .OrderByDescending(request => request.RequestedAt)
                 .Select(request => new
                 {
-                    request.Id,
+                    id = request.PublicId,
+                    request.PublicId,
                     request.Username,
                     request.Email,
                     gamerTag = request.GamerTag,
@@ -45,19 +46,22 @@ namespace Gamesphere.Controllers
             return Ok(requests);
         }
 
-        [HttpPost("account-requests/{id:int}/approve")]
-        public IActionResult ApproveAccountRequest(int id)
+        [HttpPost("account-requests/{id}/approve")]
+        public IActionResult ApproveAccountRequest(string id)
         {
-            var request = _ctx.AccountRequests.FirstOrDefault(item => item.Id == id);
+            var request = _ctx.AccountRequests.FirstOrDefault(item => item.PublicId == id);
+            if (request == null && int.TryParse(id, out var numericId))
+            {
+                request = _ctx.AccountRequests.FirstOrDefault(item => item.Id == numericId);
+            }
+
             if (request == null)
             {
                 return NotFound("Account request not found.");
             }
 
-            if (request.Status != AccountRequestStatus.Pending)
-            {
-                return Conflict("This account request has already been reviewed.");
-            }
+            // Allow changing status even after initial review (toggle between approved/rejected)
+            // but prevent creating a user if one already exists with the same email.
 
             if (_ctx.Users.Any(user => user.Email == request.Email))
             {
@@ -72,6 +76,8 @@ namespace Gamesphere.Controllers
             };
             user.PasswordHash = request.PasswordHash;
 
+            // If the request was already approved previously and a user exists (shouldn't), this will still try to add;
+            // the prior check above prevents duplicate emails.
             _ctx.Users.Add(user);
             request.Status = AccountRequestStatus.Approved;
             request.ReviewedAt = DateTime.UtcNow;
@@ -80,25 +86,60 @@ namespace Gamesphere.Controllers
             return Ok(new { message = "Account request approved.", userId = user.Id });
         }
 
-        [HttpPost("account-requests/{id:int}/reject")]
-        public IActionResult RejectAccountRequest(int id)
+        [HttpPost("account-requests/{id}/reject")]
+        public IActionResult RejectAccountRequest(string id)
         {
-            var request = _ctx.AccountRequests.FirstOrDefault(item => item.Id == id);
+            var request = _ctx.AccountRequests.FirstOrDefault(item => item.PublicId == id);
+            if (request == null && int.TryParse(id, out var numericId))
+            {
+                request = _ctx.AccountRequests.FirstOrDefault(item => item.Id == numericId);
+            }
+
             if (request == null)
             {
                 return NotFound("Account request not found.");
             }
 
-            if (request.Status != AccountRequestStatus.Pending)
-            {
-                return Conflict("This account request has already been reviewed.");
-            }
-
+            // Allow toggling rejection even if previously reviewed.
             request.Status = AccountRequestStatus.Rejected;
             request.ReviewedAt = DateTime.UtcNow;
+            // If a User exists for this request's email, remove it when rejecting.
+            var existingUser = _ctx.Users.FirstOrDefault(u => u.Email == request.Email);
+            if (existingUser != null)
+            {
+                _ctx.Users.Remove(existingUser);
+            }
+
             _ctx.SaveChanges();
 
             return Ok(new { message = "Account request rejected." });
+        }
+
+        [HttpDelete("account-requests/{id}")]
+        public IActionResult DeleteAccountRequest(string id)
+        {
+            var request = _ctx.AccountRequests.FirstOrDefault(item => item.PublicId == id);
+            if (request == null && int.TryParse(id, out var numericId))
+            {
+                request = _ctx.AccountRequests.FirstOrDefault(item => item.Id == numericId);
+            }
+
+            if (request == null)
+            {
+                return NotFound("Account request not found.");
+            }
+
+            // Remove any associated User (if present) to keep data consistent.
+            var existingUser = _ctx.Users.FirstOrDefault(u => u.Email == request.Email);
+            if (existingUser != null)
+            {
+                _ctx.Users.Remove(existingUser);
+            }
+
+            _ctx.AccountRequests.Remove(request);
+            _ctx.SaveChanges();
+
+            return Ok(new { message = "Account request and related user (if any) deleted." });
         }
     }
 }

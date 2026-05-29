@@ -18,8 +18,8 @@ function Login() {
     setError('');
 
     try {
-      await login(form);
-      navigate('/dashboard');
+      const response = await login(form);
+      navigate(response?.user?.isAdmin ? '/admin' : '/dashboard');
     } catch (err) {
       setError(err.message);
     }

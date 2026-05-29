@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import LeaderboardTable from '../../components/LeaderboardTable/LeaderboardTable';
 import { getLeaderboard } from '../../api/leaderboardApi';
-import { getTournamentById } from '../../api/tournamentApi';
+import { getTournamentById, deleteTournament } from '../../api/tournamentApi';
+import DeleteConfirm from '../../components/DeleteConfirm/DeleteConfirm';
 
 const schedules = [
   'Quarterfinals: Jun 6, 18:00 UTC',
@@ -14,6 +15,8 @@ function TournamentDetails() {
   const { id } = useParams();
   const [tournament, setTournament] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getTournamentById(id).then(setTournament);
@@ -21,12 +24,34 @@ function TournamentDetails() {
   }, [id]);
 
   if (!tournament) {
-    return <p>Tournament not found.</p>;
+    return <p>There is no tournament entry available right now.</p>;
   }
 
   return (
     <section>
       <h2>{tournament.name}</h2>
+      <p style={{ fontFamily: 'monospace', marginTop: '0.25rem' }}>ID: {tournament.publicId || tournament.id}</p>
+      <div style={{ marginTop: '0.6rem' }}>
+        <button type="button" className="ghost-btn" onClick={() => setDeleteOpen(true)}>Delete Tournament</button>
+      </div>
+
+      <DeleteConfirm
+        open={deleteOpen}
+        title={`Delete tournament: ${tournament?.name}`}
+        message={tournament ? 'Deleting this tournament will also delete any teams connected to this tournament. This action cannot be undone.' : ''}
+        details={tournament ? `ID: ${tournament.publicId || tournament.id}` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={async () => {
+          try {
+            await deleteTournament(tournament.id, true);
+            navigate('/admin');
+          } catch (err) {
+            alert(err.message || 'Failed to delete tournament');
+          }
+        }}
+      />
       <div className="grid two">
         <article className="surface-card">
           <h3>Overview</h3>
