@@ -1,5 +1,6 @@
 import MatchCard from '../../components/MatchCard/MatchCard';
 import TournamentCard from '../../components/TournamentCard/TournamentCard';
+import { useNavigate } from 'react-router-dom';
 import { useTournament } from '../../context/TournamentContext';
 
 const liveMatches = [
@@ -11,6 +12,7 @@ const topTeams = ['Nova Core', 'Quantum Five', 'Arc Syndicate'];
 
 function Home() {
   const { tournaments } = useTournament();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -18,7 +20,7 @@ function Home() {
         <p className="eyebrow">Cloud-Powered Esports Platform</p>
         <h2>Run tournaments, rally teams, and dominate leaderboards in one hub.</h2>
         <div className="cta-row">
-          <button type="button" className="primary-btn">Create Team</button>
+          <button type="button" className="primary-btn" onClick={() => navigate('/team-management')}>Create Team</button>
           <button type="button" className="ghost-btn">Browse Tournaments</button>
         </div>
       </section>

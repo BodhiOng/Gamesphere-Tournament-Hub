@@ -50,9 +50,6 @@ namespace Gamesphere.Controllers
                 return Unauthorized("Invalid email or password.");
             }
 
-            var isAdmin = user.Email.Equals("admin@example.com", System.StringComparison.OrdinalIgnoreCase)
-                || user.Username.Equals("admin", System.StringComparison.OrdinalIgnoreCase);
-
             return Ok(new
             {
                 token = "dev-token",
@@ -62,7 +59,7 @@ namespace Gamesphere.Controllers
                     user.Username,
                     user.Email,
                     gamerTag = user.Username,
-                    isAdmin
+                    isAdmin = user.IsAdmin
                 }
             });
         }

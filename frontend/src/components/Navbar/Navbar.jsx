@@ -5,9 +5,10 @@ const navItems = [
   { to: '/', label: 'Home' },
   { to: '/dashboard', label: 'Dashboard', authRequired: true },
   { to: '/tournaments', label: 'Tournaments' },
+  { to: '/team-management', label: 'Team Management', authRequired: true },
   { to: '/schedule', label: 'Schedule', authRequired: true },
   { to: '/leaderboards', label: 'Leaderboards' },
-  { to: '/profile', label: 'Profile', authRequired: true },
+  { to: '/profile', label: 'Profile',  authRequired: true },
   { to: '/admin', label: 'Admin Panel', authRequired: true, adminOnly: true },
 ];
 

@@ -27,7 +27,8 @@ namespace Gamesphere.Data
                 {
                     Username = "admin",
                     Email = "admin@example.com",
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    IsAdmin = true
                 };
 
                 admin.PasswordHash = passwordHasher.HashPassword(admin, AdminPassword);
@@ -40,9 +41,15 @@ namespace Gamesphere.Data
             if (verification == PasswordVerificationResult.Failed)
             {
                 admin.PasswordHash = passwordHasher.HashPassword(admin, AdminPassword);
-                ctx.Users.Update(admin);
-                ctx.SaveChanges();
             }
+
+            if (!admin.IsAdmin)
+            {
+                admin.IsAdmin = true;
+            }
+
+            ctx.Users.Update(admin);
+            ctx.SaveChanges();
         }
 
         public static void ResetAndSeedSampleData(AppDbContext ctx)
@@ -252,7 +259,8 @@ namespace Gamesphere.Data
             {
                 Username = username,
                 Email = email,
-                CreatedAt = createdAt
+                CreatedAt = createdAt,
+                IsAdmin = false
             };
 
             user.PasswordHash = passwordHasher.HashPassword(user, password);
