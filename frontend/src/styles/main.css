@@ -550,6 +550,61 @@ button {
   gap: 0.6rem;
 }
 
+.tournaments-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.tournaments-filter-grid {
+  grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+}
+
+.tournament-list-single {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+.tournament-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tournament-list-main {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tournament-list-actions {
+  display: flex;
+  align-items: center;
+}
+
+.tournament-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.tournament-modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.tournament-modal-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+}
+
 input,
 select {
   border: 1px solid var(--panel-border);
@@ -739,5 +794,19 @@ td {
   .grid.three,
   .filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tournament-list-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tournament-list-actions {
+    width: 100%;
+  }
+
+  .tournament-list-actions .primary-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
