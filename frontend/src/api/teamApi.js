@@ -41,7 +41,7 @@ export async function getTeamRoster(user) {
     const members = Array.isArray(data?.members) ? data.members.map(normalizeMember).filter(Boolean) : [];
     return {
       teamId: data?.teamId ?? null,
-      teamName: data?.teamName ?? '',
+      teamName: data?.teamName ?? data?.name ?? data?.team ?? '',
       captainUserId: data?.captainUserId ?? null,
       members,
     };

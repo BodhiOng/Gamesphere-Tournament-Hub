@@ -346,6 +346,12 @@ button {
   align-items: center;
 }
 
+.roster-self-action-note {
+  color: #ffffff8b;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .team-management-page {
   min-height: calc(100vh - 140px);
   display: flex;
@@ -410,27 +416,28 @@ button {
 
 .team-summary-content {
   width: 100%;
-  max-width: 760px;
   margin: 0 auto;
 }
 
-.team-summary-title {
-  margin-top: 0.5rem;
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.team-inline-form {
+.team-action-panel {
   margin-top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  background: rgba(6, 18, 38, 0.45);
 }
 
-.team-inline-row {
+.team-action-row {
   display: flex;
   gap: 0.6rem;
   align-items: end;
   flex-wrap: wrap;
+}
+
+.team-action-row-end {
+  justify-content: flex-end;
 }
 
 .team-inline-field {
@@ -439,26 +446,32 @@ button {
 }
 
 .team-summary-note {
-  margin-top: 1rem;
   display: grid;
   gap: 0.75rem;
   justify-items: center;
   text-align: center;
 }
 
-.team-summary-actions {
-  margin-top: 0;
-  justify-content: center;
+.team-roster-block {
+  margin-top: 1rem;
+}
+
+.team-roster-block h3 {
+  margin-bottom: 1.25rem;
 }
 
 @media (max-width: 720px) {
-  .team-inline-row .ghost-btn,
-  .team-inline-row .primary-btn {
+  .team-action-row .ghost-btn,
+  .team-action-row .primary-btn {
     width: 100%;
   }
 
-  .team-inline-row .team-inline-spacer {
-    margin-left: 0 !important;
+  .team-action-row-end {
+    justify-content: stretch;
+  }
+
+  .team-action-row-end .ghost-btn {
+    flex: 1 1 0;
   }
 }
 
