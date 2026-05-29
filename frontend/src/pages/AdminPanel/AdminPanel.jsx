@@ -245,7 +245,7 @@ function AdminPanel() {
       <main className="admin-column">
         <div className="admin-quick-nav" role="tablist" aria-label="Admin actions">
           <button type="button" role="tab" aria-pressed={active === 'manage-tournaments'} className={`nav-chip ${active === 'manage-tournaments' ? 'active' : ''}`} onClick={() => setActive('manage-tournaments')}>Manage tournaments</button>
-          <button type="button" role="tab" aria-pressed={active === 'manage-users'} className={`nav-chip ${active === 'manage-users' ? 'active' : ''}`} onClick={() => setActive('manage-users')}>Manage users</button>
+          <button type="button" role="tab" aria-pressed={active === 'manage-users'} className={`nav-chip ${active === 'manage-users' ? 'active' : ''}`} onClick={() => setActive('manage-users')}>Manage account requests</button>
           <button type="button" role="tab" aria-pressed={active === 'approve-teams'} className={`nav-chip ${active === 'approve-teams' ? 'active' : ''}`} onClick={() => setActive('approve-teams')}>Manage teams</button>
           <button type="button" role="tab" aria-pressed={active === 'update-matches'} className={`nav-chip ${active === 'update-matches' ? 'active' : ''}`} onClick={() => setActive('update-matches')}>Manage match results</button>
           <button type="button" role="tab" aria-pressed={active === 'moderate-reports'} className={`nav-chip ${active === 'moderate-reports' ? 'active' : ''}`} onClick={() => setActive('moderate-reports')}>Manage reports</button>

@@ -70,19 +70,39 @@ namespace Gamesphere.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterDTO dto)
         {
-            var hasApprovedAccount = _ctx.Users.Any(user => user.Email == dto.Email);
-            var hasPendingRequest = _ctx.AccountRequests.Any(request => request.Email == dto.Email && request.Status == AccountRequestStatus.Pending);
+            var username = dto.Username.Trim();
+            var email = dto.Email.Trim();
+            var gamerTag = string.IsNullOrWhiteSpace(dto.GamerTag) ? username : dto.GamerTag.Trim();
 
-            if (hasApprovedAccount || hasPendingRequest)
+            var usernameTaken = _ctx.Users.Any(user => user.Username == username)
+                || _ctx.AccountRequests.Any(request => request.Username == username);
+
+            var emailTaken = _ctx.Users.Any(user => user.Email == email)
+                || _ctx.AccountRequests.Any(request => request.Email == email);
+
+            var gamerTagTaken = _ctx.AccountRequests.Any(request => request.GamerTag == gamerTag || request.Username == gamerTag)
+                || _ctx.Users.Any(user => user.Username == gamerTag);
+
+            if (usernameTaken)
             {
-                return Conflict("An account request with this email already exists.");
+                return Conflict("That username is already taken. Please choose another one.");
+            }
+
+            if (emailTaken)
+            {
+                return Conflict("That email is already taken. Please choose another one.");
+            }
+
+            if (gamerTagTaken)
+            {
+                return Conflict("That gamer tag is already taken. Please choose another one.");
             }
 
             var request = new AccountRequest
             {
-                Username = dto.Username,
-                Email = dto.Email,
-                GamerTag = string.IsNullOrWhiteSpace(dto.GamerTag) ? dto.Username : dto.GamerTag,
+                Username = username,
+                Email = email,
+                GamerTag = gamerTag,
                 RequestedAt = DateTime.UtcNow,
                 Status = AccountRequestStatus.Pending
             };
