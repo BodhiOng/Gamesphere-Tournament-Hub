@@ -36,7 +36,6 @@ namespace Gamesphere.Controllers
                     request.PublicId,
                     request.Username,
                     request.Email,
-                    gamerTag = request.GamerTag,
                     request.Status,
                     request.RequestedAt,
                     request.ReviewedAt

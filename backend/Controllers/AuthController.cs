@@ -50,6 +50,10 @@ namespace Gamesphere.Controllers
                 return Unauthorized("Invalid email or password.");
             }
 
+            var teamName = user.TeamId.HasValue
+                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.Name).FirstOrDefault()
+                : null;
+
             return Ok(new
             {
                 token = "dev-token",
@@ -58,7 +62,8 @@ namespace Gamesphere.Controllers
                     user.Id,
                     user.Username,
                     user.Email,
-                    gamerTag = user.Username,
+                    user.TeamId,
+                    teamName,
                     isAdmin = user.IsAdmin
                 }
             });
@@ -69,16 +74,12 @@ namespace Gamesphere.Controllers
         {
             var username = dto.Username.Trim();
             var email = dto.Email.Trim();
-            var gamerTag = string.IsNullOrWhiteSpace(dto.GamerTag) ? username : dto.GamerTag.Trim();
 
             var usernameTaken = _ctx.Users.Any(user => user.Username == username)
                 || _ctx.AccountRequests.Any(request => request.Username == username);
 
             var emailTaken = _ctx.Users.Any(user => user.Email == email)
                 || _ctx.AccountRequests.Any(request => request.Email == email);
-
-            var gamerTagTaken = _ctx.AccountRequests.Any(request => request.GamerTag == gamerTag || request.Username == gamerTag)
-                || _ctx.Users.Any(user => user.Username == gamerTag);
 
             if (usernameTaken)
             {
@@ -90,16 +91,10 @@ namespace Gamesphere.Controllers
                 return Conflict("That email is already taken. Please choose another one.");
             }
 
-            if (gamerTagTaken)
-            {
-                return Conflict("That gamer tag is already taken. Please choose another one.");
-            }
-
             var request = new AccountRequest
             {
                 Username = username,
                 Email = email,
-                GamerTag = gamerTag,
                 RequestedAt = DateTime.UtcNow,
                 Status = AccountRequestStatus.Pending
             };
@@ -123,7 +118,6 @@ namespace Gamesphere.Controllers
                 request.PublicId,
                 request.Username,
                 request.Email,
-                gamerTag = request.GamerTag,
                 status = request.Status.ToString(),
                 message = "Account creation review is pending. You can use your account once it is approved by an admin."
             });

@@ -17,7 +17,6 @@ namespace Gamesphere.Models
         public string PublicId { get; set; } = null!;
         public string Username { get; set; } = null!;
         public string Email { get; set; } = null!;
-        public string? GamerTag { get; set; }
         public string PasswordHash { get; set; } = null!;
         public DateTime RequestedAt { get; set; }
         public AccountRequestStatus Status { get; set; }

@@ -37,6 +37,12 @@ export function AuthProvider({ children }) {
       async register(payload) {
         return registerUser(payload);
       },
+      updateUser(nextUser) {
+        setUser(nextUser);
+        try {
+          localStorage.setItem('gs_user', JSON.stringify(nextUser));
+        } catch {}
+      },
       logout() {
         setUser(null);
         try {

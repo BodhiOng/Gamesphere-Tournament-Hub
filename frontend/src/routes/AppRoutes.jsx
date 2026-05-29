@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import AdminLayout from '../layouts/AdminLayout';
 import MainLayout from '../layouts/MainLayout';
 import AdminPanel from '../pages/AdminPanel/AdminPanel';
-import Dashboard from '../pages/Dashboard/Dashboard';
 import Home from '../pages/Home/Home';
 import Leaderboards from '../pages/Leaderboards/Leaderboards';
 import Login from '../pages/Login/Login';
@@ -28,20 +27,6 @@ function RequireAdmin({ children }) {
   return children;
 }
 
-function RedirectAdminFromDashboard({ children }) {
-  const { user, isAuthReady } = useAuth();
-
-  if (!isAuthReady) {
-    return null;
-  }
-
-  if (user?.isAdmin) {
-    return <Navigate to="/admin" replace />;
-  }
-
-  return children;
-}
-
 function AppRoutes() {
   return (
     <Routes>
@@ -50,7 +35,6 @@ function AppRoutes() {
 
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<RedirectAdminFromDashboard><Dashboard /></RedirectAdminFromDashboard>} />
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:id" element={<TournamentDetails />} />
         <Route path="/team-management" element={<TeamManagement />} />

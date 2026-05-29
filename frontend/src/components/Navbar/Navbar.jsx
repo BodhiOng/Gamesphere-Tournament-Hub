@@ -2,10 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { to: '/', label: 'Home' },
-  { to: '/dashboard', label: 'Dashboard', authRequired: true },
   { to: '/tournaments', label: 'Tournaments' },
-  { to: '/team-management', label: 'Team Management', authRequired: true },
+  { to: '/team-management', label: 'Team', authRequired: true },
   { to: '/schedule', label: 'Schedule', authRequired: true },
   { to: '/leaderboards', label: 'Leaderboards' },
   { to: '/profile', label: 'Profile',  authRequired: true },
@@ -23,10 +21,10 @@ function Navbar() {
 
   return (
     <header className="gs-navbar">
-      <div className="brand-block">
+      <NavLink to="/" className="brand-block">
         <p className="brand-chip">GameSphere</p>
         <h1>Tournament Hub</h1>
-      </div>
+      </NavLink>
 
       <nav>
         {displayedItems.map((item) => (

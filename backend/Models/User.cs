@@ -11,5 +11,7 @@ namespace Gamesphere.Models
         public string PasswordHash { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public bool IsAdmin { get; set; }
+        public int? TeamId { get; set; }
+        public Team? Team { get; set; }
     }
 }

@@ -1,79 +1,346 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TeamRoster from '../../components/TeamRoster/TeamRoster';
-import { getTeamRoster } from '../../api/teamApi';
+import { addTeamMember, assignTeamCaptain, createTeam, deleteTeam, getTeamRoster, leaveTeam, removeTeamMember, renameTeam } from '../../api/teamApi';
 import { useAuth } from '../../context/AuthContext';
 
 function TeamManagement() {
   const [members, setMembers] = useState([]);
+  const [teamInfo, setTeamInfo] = useState({ teamId: null, teamName: '', captainUserId: null });
   const [teamName, setTeamName] = useState('');
-  const [teamMessage, setTeamMessage] = useState('');
+  const [renameValue, setRenameValue] = useState('');
+  const [memberUsername, setMemberUsername] = useState('');
+  const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [savingAction, setSavingAction] = useState('');
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
-  const teamLabel = useMemo(() => user?.teamName || user?.team || user?.currentTeam || '', [user]);
+  const teamLabel = useMemo(() => teamInfo.teamName || user?.teamName || user?.team || user?.currentTeam || '', [teamInfo.teamName, user]);
   const isAssigned = Boolean(teamLabel);
+  const isCaptain = Boolean(user?.id && teamInfo.captainUserId === user.id);
 
   useEffect(() => {
-    getTeamRoster().then(setMembers);
-  }, []);
+    if (!user || !isAssigned) {
+      setMembers([]);
+      setTeamInfo({ teamId: null, teamName: '', captainUserId: null });
+      return;
+    }
 
-  const handleCreateTeam = (event) => {
+    let ignore = false;
+
+    getTeamRoster(user)
+      .then((result) => {
+        if (!ignore) {
+          setMembers(result.members || []);
+          setTeamInfo({
+            teamId: result.teamId,
+            teamName: result.teamName,
+            captainUserId: result.captainUserId,
+          });
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setMembers([]);
+          setTeamInfo({ teamId: null, teamName: '', captainUserId: null });
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [user, isAssigned]);
+
+  useEffect(() => {
+    setRenameValue(teamLabel);
+  }, [teamLabel]);
+
+  const handleCreateTeam = async (event) => {
     event.preventDefault();
+    setError('');
+
     const trimmed = teamName.trim();
     if (!trimmed) return;
 
-    setTeamMessage(`Team "${trimmed}" is ready to create once team creation is connected to the backend.`);
+    if (!user) {
+      setError('Please log in to create a team.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const created = await createTeam(user, trimmed);
+      const resolvedName = created?.name || trimmed;
+      const nextUser = {
+        ...user,
+        teamName: resolvedName,
+        team: resolvedName,
+        currentTeam: resolvedName,
+        teamId: created?.id ?? user.teamId,
+      };
+      updateUser(nextUser);
+      setTeamInfo({
+        teamId: created?.id ?? null,
+        teamName: resolvedName,
+        captainUserId: created?.captainUserId ?? user.id ?? null,
+      });
+      setTeamName('');
+      const roster = await getTeamRoster(nextUser);
+      setMembers(roster.members || []);
+      setTeamInfo({
+        teamId: roster.teamId,
+        teamName: roster.teamName || resolvedName,
+        captainUserId: roster.captainUserId ?? (created?.captainUserId ?? user.id ?? null),
+      });
+    } catch (err) {
+      setError(err?.message || 'Failed to create team.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const refreshRoster = async (activeUser = user) => {
+    if (!activeUser) return;
+    const roster = await getTeamRoster(activeUser);
+    setMembers(roster.members || []);
+    setTeamInfo({
+      teamId: roster.teamId,
+      teamName: roster.teamName,
+      captainUserId: roster.captainUserId,
+    });
+  };
+
+  const onAddMember = async (event) => {
+    event.preventDefault();
+    setError('');
+    if (!user) return;
+
+    setSavingAction('add');
+    try {
+      await addTeamMember(user, memberUsername);
+      setMemberUsername('');
+      await refreshRoster(user);
+    } catch (err) {
+      setError(err?.message || 'Failed to add member.');
+    } finally {
+      setSavingAction('');
+    }
+  };
+
+  const onRemoveMember = async (username) => {
+    setError('');
+    if (!user) return;
+
+    setSavingAction(`remove:${username}`);
+    try {
+      await removeTeamMember(user, username);
+      await refreshRoster(user);
+    } catch (err) {
+      setError(err?.message || 'Failed to remove member.');
+    } finally {
+      setSavingAction('');
+    }
+  };
+
+  const onAssignCaptain = async (username) => {
+    setError('');
+    if (!user) return;
+
+    setSavingAction(`captain:${username}`);
+    try {
+      await assignTeamCaptain(user, username);
+      await refreshRoster(user);
+    } catch (err) {
+      setError(err?.message || 'Failed to assign captain.');
+    } finally {
+      setSavingAction('');
+    }
+  };
+
+  const onLeaveTeam = async () => {
+    setError('');
+    if (!user) return;
+
+    if (isCaptain) {
+      setError('Assign another team member as captain before leaving the team.');
+      return;
+    }
+
+    setSavingAction('leave');
+    try {
+      await leaveTeam(user);
+      updateUser({
+        ...user,
+        teamName: '',
+        team: '',
+        currentTeam: '',
+        teamId: null,
+      });
+      setMembers([]);
+      setTeamInfo({ teamId: null, teamName: '', captainUserId: null });
+    } catch (err) {
+      setError(err?.message || 'Failed to leave team.');
+    } finally {
+      setSavingAction('');
+    }
+  };
+
+  const onRenameTeam = async (event) => {
+    event.preventDefault();
+    setError('');
+    if (!user) return;
+
+    if (!isCaptain) {
+      setError('Only the captain can rename the team.');
+      return;
+    }
+
+    setSavingAction('rename');
+    try {
+      const renamed = await renameTeam(user, renameValue);
+      const resolvedName = renamed?.name || renameValue.trim();
+      updateUser({
+        ...user,
+        teamName: resolvedName,
+        team: resolvedName,
+        currentTeam: resolvedName,
+      });
+      setTeamInfo((current) => ({
+        ...current,
+        teamName: resolvedName,
+      }));
+      setRenameValue(resolvedName);
+    } catch (err) {
+      setError(err?.message || 'Failed to rename team.');
+    } finally {
+      setSavingAction('');
+    }
+  };
+
+  const onDeleteTeam = async () => {
+    setError('');
+    if (!user) return;
+
+    if (!isCaptain) {
+      setError('Only the captain can delete the team.');
+      return;
+    }
+
+    setSavingAction('delete');
+    try {
+      await deleteTeam(user);
+      updateUser({
+        ...user,
+        teamName: '',
+        team: '',
+        currentTeam: '',
+        teamId: null,
+      });
+      setMembers([]);
+      setTeamInfo({ teamId: null, teamName: '', captainUserId: null });
+      setRenameValue('');
+      setMemberUsername('');
+    } catch (err) {
+      setError(err?.message || 'Failed to delete team.');
+    } finally {
+      setSavingAction('');
+    }
   };
 
   return (
-    <section>
-      <h2>Team Management</h2>
-
+    <section className="team-management-page">
       {!isAssigned ? (
-        <article className="surface-card" style={{ marginTop: '1rem' }}>
-          <h3>You're not assigned to any team</h3>
-          <p style={{ marginTop: '0.5rem' }}>
-            Create a team to start inviting players and managing your roster.
-          </p>
-
-          <form onSubmit={handleCreateTeam} style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem', maxWidth: '420px' }}>
-            <label>
-              Team name
-              <input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Enter a team name" />
-            </label>
-            <div className="cta-row">
-              <button type="submit" className="primary-btn">Create Team</button>
-              <button type="button" className="ghost-btn" onClick={() => navigate('/profile')}>View Profile</button>
+        <article className="surface-card team-empty-card" style={{ marginTop: '1rem' }}>
+          <div className="team-empty-state">
+            <div className="team-empty-state-copy">
+              <h3>You're not assigned to any team</h3>
+              <p>
+                Create a team to start inviting players and managing your roster.
+              </p>
             </div>
-          </form>
 
-          {teamMessage && <p className="success-text" style={{ marginTop: '0.85rem' }}>{teamMessage}</p>}
+            <form onSubmit={handleCreateTeam} className="team-empty-form">
+              <label>
+                Team name
+                <input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Enter a team name" />
+              </label>
+              <div className="cta-row">
+                <button type="submit" className="primary-btn team-empty-submit" disabled={creating}>{creating ? 'Creating...' : 'Create Team'}</button>
+              </div>
+            </form>
+
+            {error && <p className="error-text team-empty-error">{error}</p>}
+          </div>
         </article>
-      ) : (
-        <div className="grid two">
-          <article className="surface-card">
-            <h3>Team Overview</h3>
-            <p>Team: {teamLabel}</p>
-            <p>Manage members and coordination from this section.</p>
-          </article>
+      ) : null}
 
-          <article className="surface-card">
-            <h3>Team Actions</h3>
-            <ul className="detail-list">
-              <li>Invite players</li>
-              <li>Remove members</li>
-              <li>Assign captain</li>
-              <li>Review roster updates</li>
-            </ul>
-          </article>
-        </div>
-      )}
+      {isAssigned ? (
+        <article className="surface-card team-summary-card" style={{ marginTop: '1rem' }}>
+          <div className="team-summary-content">
+            <p className="team-summary-title">{teamLabel}</p>
 
-      <article className="surface-card">
-        <h3>Roster Table</h3>
-        {members.length > 0 ? <TeamRoster members={members} /> : <p style={{ marginTop: '0.5rem' }}>No roster members available right now.</p>}
-      </article>
+            {isCaptain ? (
+              <>
+                <form onSubmit={onRenameTeam} className="team-inline-form">
+                  <div className="team-inline-row">
+                    <label className="team-inline-field">
+                      Team name
+                      <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} placeholder="Enter a team name" />
+                    </label>
+                    <button type="submit" className="primary-btn" disabled={savingAction === 'rename'}>
+                      {savingAction === 'rename' ? 'Saving...' : 'Rename Team'}
+                    </button>
+                  </div>
+                </form>
+
+                <form onSubmit={onAddMember} className="team-inline-form">
+                  <div className="team-inline-row">
+                    <label className="team-inline-field">
+                      Add member by username
+                      <input value={memberUsername} onChange={(e) => setMemberUsername(e.target.value)} placeholder="Enter username" />
+                    </label>
+                    <button type="submit" className="primary-btn" disabled={savingAction === 'add'}>{savingAction === 'add' ? 'Adding...' : 'Add Member'}</button>
+                    <button type="button" className="ghost-btn danger-btn team-inline-spacer" onClick={onLeaveTeam} style={{ marginLeft: 'auto' }}>
+                      Leave Team
+                    </button>
+                    <button type="button" className="ghost-btn danger-btn" onClick={onDeleteTeam} disabled={savingAction === 'delete'}>
+                      {savingAction === 'delete' ? 'Deleting...' : 'Delete Team'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className="team-summary-note">
+                <p>Only the captain can add/remove members or assign a new captain.</p>
+                <div className="cta-row team-summary-actions">
+                  <button type="button" className="ghost-btn danger-btn" onClick={onLeaveTeam} disabled={savingAction === 'leave'}>
+                    {savingAction === 'leave' ? 'Leaving...' : 'Leave Team'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {error ? <p className="error-text" style={{ marginTop: '0.85rem' }}>{error}</p> : null}
+          </div>
+        </article>
+      ) : null}
+
+      {isAssigned ? (
+        <article className="surface-card" style={{ marginTop: '1rem' }}>
+          <h3 style={{ marginBottom: '1rem' }}>Roster Table</h3>
+          {members.length > 0 ? (
+            <TeamRoster
+              members={members}
+              captainUserId={teamInfo.captainUserId}
+              canManage={isCaptain}
+              savingAction={savingAction}
+              onRemoveMember={onRemoveMember}
+              onAssignCaptain={onAssignCaptain}
+            />
+          ) : <p style={{ marginTop: '0.5rem' }}>No roster members available right now.</p>}
+        </article>
+      ) : null}
     </section>
   );
 }

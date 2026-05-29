@@ -338,6 +338,136 @@ button {
   flex-wrap: nowrap; /* keep action buttons on a single row */
 }
 
+.roster-actions-row {
+  margin-top: 0;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.team-management-page {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
+}
+
+.team-empty-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-empty-state {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+  align-content: center;
+}
+
+.team-empty-state-copy {
+  display: grid;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.team-empty-form {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.team-empty-form label {
+  text-align: left;
+}
+
+.team-empty-form .cta-row {
+  margin-top: 0;
+  width: 100%;
+}
+
+.team-empty-submit {
+  width: 100%;
+  min-height: 3.25rem;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.team-empty-error {
+  margin-top: 0;
+  text-align: center;
+}
+
+.team-summary-card {
+  display: flex;
+  justify-content: center;
+}
+
+.team-summary-content {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.team-summary-title {
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.team-inline-form {
+  margin-top: 1rem;
+}
+
+.team-inline-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.team-inline-field {
+  flex: 1 1 300px;
+  margin: 0;
+}
+
+.team-summary-note {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.team-summary-actions {
+  margin-top: 0;
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .team-inline-row .ghost-btn,
+  .team-inline-row .primary-btn {
+    width: 100%;
+  }
+
+  .team-inline-row .team-inline-spacer {
+    margin-left: 0 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .team-management-page {
+    min-height: calc(100vh - 112px);
+  }
+}
+
 .primary-btn,
 .ghost-btn {
   border-radius: 999px;
@@ -361,6 +491,16 @@ button {
 .ghost-btn {
   background: rgba(147, 194, 255, 0.07);
   color: var(--ink);
+}
+
+.danger-btn {
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(255, 107, 107, 0.14);
+  color: #ffd5d5;
+}
+
+.danger-btn:hover {
+  background: rgba(255, 107, 107, 0.2);
 }
 
 .card-header {

@@ -9,7 +9,6 @@ function Register() {
     username: '',
     email: '',
     password: '',
-    gamerTag: '',
   });
   const [error, setError] = useState('');
 
@@ -47,10 +46,6 @@ function Register() {
         <label>
           Password
           <input name="password" type="password" onChange={onChange} value={form.password} required />
-        </label>
-        <label>
-          Gamer Tag
-          <input name="gamerTag" onChange={onChange} value={form.gamerTag} required />
         </label>
         {error && <p className="error-text">{error}</p>}
         <button type="submit" className="primary-btn">Register</button>

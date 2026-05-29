@@ -34,9 +34,6 @@ namespace Gamesphere.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("GamerTag")
-                        .HasColumnType("text");
-
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -164,8 +161,8 @@ namespace Gamesphere.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("LogoUrl")
-                        .HasColumnType("text");
+                    b.Property<int?>("CaptainUserId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()

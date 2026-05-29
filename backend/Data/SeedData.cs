@@ -272,7 +272,6 @@ namespace Gamesphere.Data
             return new Team
             {
                 Name = name,
-                LogoUrl = logoUrl,
                 Members = members.ToList()
             };
         }

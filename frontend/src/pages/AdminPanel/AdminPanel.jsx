@@ -449,7 +449,7 @@ function AdminPanel() {
                 type="search"
                 value={requestSearch}
                 onChange={(e) => setRequestSearch(e.target.value)}
-                placeholder="Search by ID, username, email, or gamer tag"
+                placeholder="Search by ID, username, or email"
                 style={{ padding: '0.45rem 0.6rem', minWidth: '280px' }}
               />
               <select value={requestStatusFilter} onChange={(e) => setRequestStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem' }}>
@@ -475,12 +475,10 @@ function AdminPanel() {
                 const requestId = String(r.publicId || r.id || '').toLowerCase();
                 const username = String(r.username || '').toLowerCase();
                 const email = String(r.email || '').toLowerCase();
-                const gamerTag = String(r.gamerTag || '').toLowerCase();
 
                 return requestId.includes(searchValue)
                   || username.includes(searchValue)
-                  || email.includes(searchValue)
-                  || gamerTag.includes(searchValue);
+                  || email.includes(searchValue);
               });
 
               if (!loading && visibleRequests.length === 0) {
@@ -495,7 +493,6 @@ function AdminPanel() {
                         <th>ID</th>
                         <th>Username</th>
                         <th>Email</th>
-                        <th>Gamer Tag</th>
                         <th>Requested</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -512,7 +509,6 @@ function AdminPanel() {
                             <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{requestId}</td>
                             <td>{req.username}</td>
                             <td>{req.email}</td>
-                            <td>{req.gamerTag || '-'}</td>
                             <td>{requestedAt}</td>
                             <td>{statusLabel}</td>
                             <td>
