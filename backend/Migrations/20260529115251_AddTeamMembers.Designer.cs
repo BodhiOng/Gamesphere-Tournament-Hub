@@ -3,6 +3,7 @@ using System;
 using Gamesphere.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gamesphere.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260529115251_AddTeamMembers")]
+    partial class AddTeamMembers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -164,17 +167,8 @@ namespace Gamesphere.Migrations
                     b.Property<int?>("CaptainUserId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<string>("LogoUrl")
-                        .HasColumnType("text");
-
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PreferredGames")
                         .HasColumnType("text");
 
                     b.Property<int?>("TournamentId")
@@ -185,46 +179,6 @@ namespace Gamesphere.Migrations
                     b.HasIndex("TournamentId");
 
                     b.ToTable("Teams");
-                });
-
-            modelBuilder.Entity("Gamesphere.Models.TeamJoinRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Message")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("RequesterUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("ReviewedByUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TeamId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RequesterUserId");
-
-                    b.HasIndex("ReviewedByUserId");
-
-                    b.HasIndex("TeamId", "RequesterUserId", "Status");
-
-                    b.ToTable("TeamJoinRequests");
                 });
 
             modelBuilder.Entity("Gamesphere.Models.TeamMember", b =>
@@ -350,26 +304,6 @@ namespace Gamesphere.Migrations
                     b.HasOne("Gamesphere.Models.Tournament", null)
                         .WithMany("Teams")
                         .HasForeignKey("TournamentId");
-                });
-
-            modelBuilder.Entity("Gamesphere.Models.TeamJoinRequest", b =>
-                {
-                    b.HasOne("Gamesphere.Models.User", null)
-                        .WithMany()
-                        .HasForeignKey("RequesterUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Gamesphere.Models.User", null)
-                        .WithMany()
-                        .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Gamesphere.Models.Team", null)
-                        .WithMany()
-                        .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Gamesphere.Models.TeamMember", b =>

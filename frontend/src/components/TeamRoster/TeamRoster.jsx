@@ -1,5 +1,30 @@
+import { useEffect, useMemo, useState } from 'react';
+
 function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveMember, onAssignCaptain, currentUserId, currentUsername }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
   const normalizedCurrentUsername = (currentUsername || '').trim().toLowerCase();
+
+  const orderedMembers = useMemo(() => {
+    const list = Array.isArray(members) ? [...members] : [];
+    return list.sort((a, b) => {
+      const aIsCaptain = (a?.id != null && captainUserId != null && String(a.id) === String(captainUserId))
+        || String(a?.role || '').toLowerCase() === 'captain';
+      const bIsCaptain = (b?.id != null && captainUserId != null && String(b.id) === String(captainUserId))
+        || String(b?.role || '').toLowerCase() === 'captain';
+
+      if (aIsCaptain && !bIsCaptain) {
+        return -1;
+      }
+
+      if (!aIsCaptain && bIsCaptain) {
+        return 1;
+      }
+
+      return String(a?.gamerTag || a?.username || '').localeCompare(String(b?.gamerTag || b?.username || ''));
+    });
+  }, [members, captainUserId]);
 
   const isSelfMember = (member) => {
     if (!member || typeof member !== 'object') {
@@ -16,8 +41,55 @@ function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveM
     return Boolean(memberUsername && normalizedCurrentUsername && memberUsername === normalizedCurrentUsername);
   };
 
+  const filteredMembers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return orderedMembers;
+    }
+
+    return orderedMembers.filter((member) => {
+      const username = String(member?.username || '').toLowerCase();
+      const gamerTag = String(member?.gamerTag || '').toLowerCase();
+      const role = String(member?.role || '').toLowerCase();
+      const status = String(member?.status || '').toLowerCase();
+      return username.includes(query)
+        || gamerTag.includes(query)
+        || role.includes(query)
+        || status.includes(query);
+    });
+  }, [orderedMembers, searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, pageSize, members, captainUserId]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const pagedMembers = filteredMembers.slice(start, start + pageSize);
+
   return (
     <div className="table-shell">
+      <div className="roster-toolbar">
+        <label className="roster-search-field">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by username, role, status"
+          />
+        </label>
+
+        <label className="roster-page-size-field">
+          Rows
+          <select value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))}>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+        </label>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -28,7 +100,7 @@ function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveM
           </tr>
         </thead>
         <tbody>
-          {members.map((member) => {
+          {pagedMembers.map((member) => {
             const selfEntry = isSelfMember(member);
 
             return (
@@ -67,6 +139,15 @@ function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveM
           })}
         </tbody>
       </table>
+
+      <div className="roster-pagination-row">
+        <span>Showing {filteredMembers.length === 0 ? 0 : start + 1}-{Math.min(start + pageSize, filteredMembers.length)} of {filteredMembers.length}</span>
+        <div className="roster-pagination-controls">
+          <button type="button" className="ghost-btn" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={safePage <= 1}>Previous</button>
+          <span>Page {safePage} / {totalPages}</span>
+          <button type="button" className="ghost-btn" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={safePage >= totalPages}>Next</button>
+        </div>
+      </div>
     </div>
   );
 }

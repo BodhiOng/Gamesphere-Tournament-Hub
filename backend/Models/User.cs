@@ -13,5 +13,6 @@ namespace Gamesphere.Models
         public bool IsAdmin { get; set; }
         public int? TeamId { get; set; }
         public Team? Team { get; set; }
+        public List<TeamMember>? TeamMemberships { get; set; }
     }
 }

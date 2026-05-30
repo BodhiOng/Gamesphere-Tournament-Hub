@@ -409,24 +409,98 @@ button {
   text-align: center;
 }
 
-.team-summary-card {
-  display: flex;
-  justify-content: center;
+.team-notice-text {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
 }
 
-.team-summary-content {
+.team-join-disabled-note {
+  margin: 0.2rem 0 0;
+  color: var(--muted-ink);
+  font-size: 0.88rem;
+}
+
+.team-discover-block {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.team-discover-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.team-discover-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: rgba(8, 20, 42, 0.52);
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.team-discover-card p {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.team-discover-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.team-discover-header h4 {
+  margin: 0;
+}
+
+.team-discover-header span {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+}
+
+.my-teams-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.my-teams-chip {
+  border: 1px solid rgba(147, 194, 255, 0.2);
+  background: rgba(147, 194, 255, 0.1);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.9rem;
+  color: var(--ink);
+  font-family: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.my-teams-chip:hover {
+  border-color: rgba(147, 194, 255, 0.45);
+  background: rgba(147, 194, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.my-teams-chip.is-active {
+  border-color: rgba(88, 181, 255, 0.8);
+  background: rgba(65, 165, 245, 0.26);
+}
+
+.team-action-panel-card {
   width: 100%;
-  margin: 0 auto;
 }
 
 .team-action-panel {
-  margin-top: 1rem;
   display: grid;
   gap: 0.85rem;
-  padding: 1rem;
-  border: 1px solid var(--panel-border);
-  border-radius: 20px;
-  background: rgba(6, 18, 38, 0.45);
 }
 
 .team-action-row {
@@ -434,6 +508,50 @@ button {
   gap: 0.6rem;
   align-items: end;
   flex-wrap: wrap;
+}
+
+.team-profile-form {
+  display: grid;
+  gap: 0.8rem;
+  padding-top: 0.3rem;
+  border-top: 1px dashed var(--panel-border);
+}
+
+.team-requests-block {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--panel-border);
+}
+
+.team-requests-block h4 {
+  margin: 0;
+}
+
+.team-requests-block p {
+  margin: 0;
+  color: var(--muted-ink);
+}
+
+.team-requests-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.team-request-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: rgba(6, 16, 34, 0.55);
+}
+
+.team-request-actions {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
 }
 
 .team-action-row-end {
@@ -456,8 +574,204 @@ button {
   margin-top: 1rem;
 }
 
+.team-profile-card {
+  margin-top: 0.75rem;
+}
+
+.team-profile-preview {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.team-profile-preview img {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--panel-border);
+}
+
+.team-profile-preview h4 {
+  margin: 0 0 0.35rem;
+}
+
+.team-profile-preview p {
+  margin: 0;
+  color: var(--muted-ink);
+}
+
+.team-profile-preview.is-member-scroll {
+  max-height: 190px;
+  overflow-y: auto;
+  padding-right: 0.55rem;
+}
+
+.team-enlisted-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.team-enlisted-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.team-enlisted-header h3 {
+  margin: 0;
+}
+
+.team-enlisted-search-field {
+  flex: 0 1 260px;
+}
+
+.team-enlisted-search-field input {
+  width: 100%;
+}
+
+.team-enlisted-carousel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.team-enlisted-nav {
+  flex: 0 0 auto;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.55rem;
+}
+
+.team-enlisted-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.team-enlisted-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: rgba(8, 20, 42, 0.55);
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.team-enlisted-cell:hover:not(:disabled) {
+  background: rgba(27, 200, 166, 0.1);
+  border-color: rgba(27, 200, 166, 0.4);
+  transform: translateY(-2px);
+}
+
+.team-enlisted-cell-img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(147, 194, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-enlisted-cell-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.team-enlisted-cell-no-img {
+  font-size: 2rem;
+  color: var(--muted-ink);
+  user-select: none;
+}
+
+.team-enlisted-cell-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.75rem 0;
+}
+
+.team-enlisted-cell-desc {
+  font-size: 0.82rem;
+  color: var(--muted-ink);
+  padding: 0 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.team-enlisted-status {
+  margin: 0 0.75rem 0.65rem;
+  align-self: flex-start;
+}
+
+.team-enlisted-page-indicator {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.team-enlisted-status {
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  border: 1px solid transparent;
+}
+
+.team-enlisted-status.is-approved {
+  color: #9af3da;
+  background: rgba(27, 200, 166, 0.18);
+  border-color: rgba(27, 200, 166, 0.4);
+}
+
+.team-enlisted-status.is-pending {
+  color: #ffe2a7;
+  background: rgba(255, 191, 73, 0.18);
+  border-color: rgba(255, 191, 73, 0.4);
+}
+
+.team-roster-inline-note {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.team-roster-inline-note p {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.92rem;
+}
+
 .team-roster-block h3 {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.team-roster-context {
+  margin: 0 0 1rem;
+  color: var(--muted-ink);
+  font-size: 0.92rem;
 }
 
 @media (max-width: 720px) {
@@ -472,6 +786,68 @@ button {
 
   .team-action-row-end .ghost-btn {
     flex: 1 1 0;
+  }
+
+  .team-roster-inline-note {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .team-roster-inline-note .ghost-btn {
+    width: 100%;
+  }
+
+  .team-discover-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-request-row {
+    flex-direction: column;
+  }
+
+  .team-request-actions {
+    width: 100%;
+  }
+
+  .team-request-actions .ghost-btn {
+    flex: 1 1 0;
+  }
+
+  .team-profile-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .team-profile-preview img {
+    width: 84px;
+    height: 84px;
+  }
+
+  .roster-pagination-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .roster-pagination-controls {
+    justify-content: space-between;
+  }
+
+  .team-enlisted-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .team-enlisted-search-field {
+    flex: 1 1 auto;
+  }
+
+  .team-enlisted-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .team-enlisted-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -771,6 +1147,50 @@ select:focus {
 
 .table-shell {
   overflow-x: auto;
+}
+
+.roster-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 0.7rem;
+}
+
+.roster-search-field {
+  flex: 1 1 280px;
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.88rem;
+}
+
+.roster-page-size-field {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-ink);
+  font-size: 0.88rem;
+}
+
+.roster-page-size-field select {
+  min-width: 90px;
+}
+
+.roster-pagination-row {
+  margin-top: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.roster-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 /* Admin account requests table tweaks */
