@@ -23,7 +23,9 @@ function normalizeTournament(item) {
     prizePool: item.prizePool,
     startDate: item.startDate,
     teamSlots: item.teamSlots,
-    teamsCount: Array.isArray(item.teams) ? item.teams.length : (item.teamsCount ?? 0),
+    teamsCount: Array.isArray(item.registrations)
+      ? item.registrations.length
+      : (Array.isArray(item.teams) ? item.teams.length : (item.teamsCount ?? 0)),
   };
 }
 

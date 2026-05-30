@@ -25,12 +25,36 @@ function normalizeTournament(item, index) {
     return null;
   }
 
+  const rawStatus = String(item.status ?? '').toLowerCase();
+  let normalizedStatus = rawStatus;
+  if (rawStatus === 'in progress' || rawStatus === 'in-progress' || rawStatus === 'active' || rawStatus === 'live') {
+    normalizedStatus = 'ongoing';
+  } else if (rawStatus === 'scheduled' || rawStatus === 'open') {
+    normalizedStatus = 'upcoming';
+  }
+
   return {
     id: item.id ?? item.publicId ?? index,
     publicId: item.publicId ?? '',
     name: item.name ?? '-',
+    image: item.image ?? '',
+    description: item.description ?? '',
+    status: normalizedStatus,
     startDate: item.startDate ?? null,
     approved: Boolean(item.approved),
+  };
+}
+
+function normalizeDiscoverMember(item, index) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  return {
+    id: item.id ?? index,
+    username: item.username ?? '-',
+    role: item.role ?? 'Member',
+    joinedAt: item.joinedAt ?? null,
   };
 }
 
@@ -43,17 +67,35 @@ function normalizeTeamSummary(item, index) {
     ? item.preferredGames.filter((entry) => typeof entry === 'string' && entry.trim())
     : [];
 
-  const enlistedTournaments = Array.isArray(item.enlistedTournaments)
-    ? item.enlistedTournaments.map(normalizeTournament).filter(Boolean)
-    : [];
+  const rawTournaments = Array.isArray(item.enlistedTournaments)
+    ? item.enlistedTournaments
+    : Array.isArray(item.tournaments)
+      ? item.tournaments
+      : [];
+
+  const enlistedTournaments = rawTournaments
+    .map(normalizeTournament)
+    .filter(Boolean);
+
+  const rawMembers = Array.isArray(item.members)
+    ? item.members
+    : Array.isArray(item.rosterMembers)
+      ? item.rosterMembers
+      : [];
+
+  const members = rawMembers
+    .map(normalizeDiscoverMember)
+    .filter(Boolean);
 
   return {
     id: item.id ?? index,
     name: item.name ?? '-',
     logoUrl: item.logoUrl ?? '',
     description: item.description ?? '',
+    memberLimit: item.memberLimit ?? null,
     preferredGames,
     enlistedTournaments,
+    members,
     isCaptain: Boolean(item.isCaptain),
     isActive: Boolean(item.isActive),
     memberCount: item.memberCount ?? 0,
@@ -90,6 +132,8 @@ export async function getTeamRoster(user, teamId = null) {
       teamName: data?.teamName ?? data?.name ?? data?.team ?? '',
       teamLogoUrl: data?.teamLogoUrl ?? '',
       teamDescription: data?.teamDescription ?? '',
+      memberLimit: data?.memberLimit ?? null,
+      memberCount: data?.memberCount ?? members.length,
       preferredGames: Array.isArray(data?.preferredGames) ? data.preferredGames : [],
       enlistedTournaments: Array.isArray(data?.enlistedTournaments) ? data.enlistedTournaments.map(normalizeTournament).filter(Boolean) : [],
       captainUserId: data?.captainUserId ?? null,
@@ -101,6 +145,8 @@ export async function getTeamRoster(user, teamId = null) {
       teamName: '',
       teamLogoUrl: '',
       teamDescription: '',
+      memberLimit: null,
+      memberCount: 0,
       preferredGames: [],
       enlistedTournaments: [],
       captainUserId: null,
@@ -149,6 +195,7 @@ export async function updateTeamProfile(user, payload, teamId = null) {
       logoUrl: payload?.logoUrl ?? '',
       description: payload?.description ?? '',
       preferredGames: payload?.preferredGames ?? '',
+      memberLimit: payload?.memberLimit ?? null,
     }),
   });
 }
@@ -188,6 +235,21 @@ export async function requestTeamJoin(user, payload) {
       teamId: payload?.teamId ?? null,
       teamName: payload?.teamName ?? '',
       message: payload?.message ?? '',
+    }),
+  });
+}
+
+export async function cancelTeamJoinRequest(user, payload) {
+  if (!user) {
+    throw new Error('You must be logged in to cancel a join request.');
+  }
+
+  return request('/api/team/join/cancel', {
+    method: 'POST',
+    body: JSON.stringify({
+      actorUserId: user.id,
+      actorEmail: user.email,
+      teamId: payload?.teamId ?? null,
     }),
   });
 }

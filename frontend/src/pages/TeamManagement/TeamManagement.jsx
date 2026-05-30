@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TeamRoster from '../../components/TeamRoster/TeamRoster';
 import {
   addTeamMember,
   approveTeamJoinRequest,
   assignTeamCaptain,
+  cancelTeamJoinRequest,
   createTeam,
   deleteTeam,
   discoverTeams,
@@ -26,38 +27,131 @@ function TeamManagement() {
   const [enlistedSearch, setEnlistedSearch] = useState('');
   const [enlistedPage, setEnlistedPage] = useState(0);
   const ENLISTED_COLS = 3;
+  const DISCOVER_PAGE_SIZE = 9;
+  const DISCOVER_VISIBLE_GAMES = 3;
+  const DISCOVER_ROSTER_PAGE_SIZE = 5;
+  const DISCOVER_TOURNAMENT_PAGE_SIZE = 5;
+  const JOIN_REQUESTS_PAGE_SIZE = 10;
   const [myTeams, setMyTeams] = useState([]);
+  const [teamsView, setTeamsView] = useState('my');
+  const [createTeamOpen, setCreateTeamOpen] = useState(false);
+  const [selectedDiscoverTeam, setSelectedDiscoverTeam] = useState(null);
+  const [profileLogoBroken, setProfileLogoBroken] = useState(false);
+  const [discoverLogoBroken, setDiscoverLogoBroken] = useState(false);
   const [discoverFeed, setDiscoverFeed] = useState([]);
+  const [discoverSearch, setDiscoverSearch] = useState('');
+  const [discoverPage, setDiscoverPage] = useState(0);
+  const [discoverRosterPage, setDiscoverRosterPage] = useState(0);
+  const [discoverTournamentPage, setDiscoverTournamentPage] = useState(0);
+  const [discoverTournamentFilter, setDiscoverTournamentFilter] = useState('ongoing');
   const [canRequestJoin, setCanRequestJoin] = useState(false);
   const [joinRequests, setJoinRequests] = useState([]);
+  const [joinRequestSearch, setJoinRequestSearch] = useState('');
+  const [joinRequestPage, setJoinRequestPage] = useState(1);
+  const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
+  const [myTeamsLoaded, setMyTeamsLoaded] = useState(false);
+  const [hasInitializedTeamsView, setHasInitializedTeamsView] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [teamInfo, setTeamInfo] = useState({
     teamId: null,
     teamName: '',
     teamLogoUrl: '',
     teamDescription: '',
+    memberLimit: null,
+    memberCount: 0,
     preferredGames: [],
     enlistedTournaments: [],
     captainUserId: null,
   });
-  const [teamName, setTeamName] = useState('');
-  const [joinTeamName, setJoinTeamName] = useState('');
-  const [joinRequestMessage, setJoinRequestMessage] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [teamName, setTeamName] = useState('');
+  const [memberLimitInput, setMemberLimitInput] = useState('');
+  const [memberLimitError, setMemberLimitError] = useState('');
   const [description, setDescription] = useState('');
   const [preferredGamesInput, setPreferredGamesInput] = useState('');
   const [renameValue, setRenameValue] = useState('');
   const [memberUsername, setMemberUsername] = useState('');
+  const [memberInputError, setMemberInputError] = useState('');
+  const [createTeamError, setCreateTeamError] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [savingAction, setSavingAction] = useState('');
+  const noticeTimerRef = useRef(null);
   const { user, updateUser } = useAuth();
 
+  const hasTeams = myTeams.length > 0;
+  const sortedMyTeams = useMemo(() => {
+    return [...myTeams].sort((left, right) => {
+      const leftCaptain = Boolean(left?.isCaptain);
+      const rightCaptain = Boolean(right?.isCaptain);
+
+      if (leftCaptain !== rightCaptain) {
+        return leftCaptain ? -1 : 1;
+      }
+
+      return String(left?.name || '').localeCompare(String(right?.name || ''));
+    });
+  }, [myTeams]);
   const teamLabel = useMemo(() => teamInfo.teamName || user?.teamName || user?.team || user?.currentTeam || '', [teamInfo.teamName, user]);
-  const isAssigned = Boolean(teamLabel);
+  const isAssigned = hasTeams;
+  const showDiscoverPanel = teamsView === 'discover';
+  const showMyTeamsPanel = teamsView === 'my';
   const isCaptain = Boolean(user?.id && teamInfo.captainUserId === user.id);
   const activeTeamId = teamInfo.teamId ?? selectedTeamId ?? null;
+  const activeDiscoverTeam = useMemo(() => {
+    if (!selectedDiscoverTeam) {
+      return null;
+    }
+
+    return discoverFeed.find((team) => team.id === selectedDiscoverTeam.id) || selectedDiscoverTeam;
+  }, [discoverFeed, selectedDiscoverTeam]);
+
+  const clearNotice = () => {
+    if (noticeTimerRef.current) {
+      window.clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = null;
+    }
+    setNotice('');
+  };
+
+  const showNotice = (message) => {
+    if (noticeTimerRef.current) {
+      window.clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = null;
+    }
+
+    setNotice(message);
+    if (message) {
+      noticeTimerRef.current = window.setTimeout(() => {
+        setNotice('');
+        noticeTimerRef.current = null;
+      }, 10000);
+    }
+  };
+
+  useEffect(() => () => {
+    if (noticeTimerRef.current) {
+      window.clearTimeout(noticeTimerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || !myTeamsLoaded || hasInitializedTeamsView) {
+      return;
+    }
+
+    if (hasTeams && teamsView !== 'my') {
+      setTeamsView('my');
+      setHasInitializedTeamsView(true);
+      return;
+    }
+
+    if (!hasTeams && teamsView === 'my') {
+      setTeamsView('discover');
+      setHasInitializedTeamsView(true);
+    }
+  }, [user, hasTeams, myTeamsLoaded, hasInitializedTeamsView, teamsView]);
 
   useEffect(() => {
     if (!isAssigned) {
@@ -72,19 +166,67 @@ function TeamManagement() {
     if (!isAssigned) {
       setLogoUrl('');
       setDescription('');
+      setMemberLimitInput('');
+      setMemberLimitError('');
       setPreferredGamesInput('');
+      setProfileLogoBroken(false);
       return;
     }
 
     setLogoUrl(teamInfo.teamLogoUrl || '');
     setDescription(teamInfo.teamDescription || '');
+    setMemberLimitInput(teamInfo.memberLimit != null ? String(teamInfo.memberLimit) : '');
     setPreferredGamesInput(Array.isArray(teamInfo.preferredGames) ? teamInfo.preferredGames.join(', ') : '');
-  }, [isAssigned, teamInfo.teamLogoUrl, teamInfo.teamDescription, teamInfo.preferredGames]);
+  }, [isAssigned, teamInfo.teamLogoUrl, teamInfo.teamDescription, teamInfo.memberLimit, teamInfo.preferredGames]);
 
   useEffect(() => {
-    if (!user || !isAssigned) {
+    if (memberLimitInput === '') {
+      setMemberLimitError('');
+      return;
+    }
+
+    const parsedLimit = Number(memberLimitInput);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 1) {
+      setMemberLimitError('Enter a valid member limit.');
+      return;
+    }
+
+    if (teamInfo.memberCount > parsedLimit) {
+      setMemberLimitError(`Member limit must be at least ${teamInfo.memberCount}.`);
+      return;
+    }
+
+    setMemberLimitError('');
+  }, [memberLimitInput, teamInfo.memberCount]);
+
+  useEffect(() => {
+    setDiscoverLogoBroken(false);
+  }, [activeDiscoverTeam?.id, activeDiscoverTeam?.logoUrl]);
+
+  useEffect(() => {
+    setDiscoverRosterPage(0);
+    setDiscoverTournamentPage(0);
+    setDiscoverTournamentFilter('ongoing');
+  }, [activeDiscoverTeam?.id]);
+
+  useEffect(() => {
+    setDiscoverTournamentPage(0);
+  }, [discoverTournamentFilter]);
+
+  useEffect(() => {
+    if (!user || !hasTeams) {
       setMembers([]);
-      setTeamInfo({ teamId: null, teamName: '', captainUserId: null });
+      setTeamInfo({
+        teamId: null,
+        teamName: '',
+        teamLogoUrl: '',
+        teamDescription: '',
+        memberLimit: null,
+        memberCount: 0,
+        preferredGames: [],
+        enlistedTournaments: [],
+        captainUserId: null,
+      });
       return;
     }
 
@@ -99,6 +241,8 @@ function TeamManagement() {
             teamName: result.teamName,
             teamLogoUrl: result.teamLogoUrl || '',
             teamDescription: result.teamDescription || '',
+            memberLimit: result.memberLimit ?? null,
+            memberCount: result.memberCount ?? 0,
             preferredGames: Array.isArray(result.preferredGames) ? result.preferredGames : [],
             enlistedTournaments: Array.isArray(result.enlistedTournaments) ? result.enlistedTournaments : [],
             captainUserId: result.captainUserId,
@@ -114,6 +258,8 @@ function TeamManagement() {
             teamName: '',
             teamLogoUrl: '',
             teamDescription: '',
+            memberLimit: null,
+            memberCount: 0,
             preferredGames: [],
             enlistedTournaments: [],
             captainUserId: null,
@@ -126,36 +272,58 @@ function TeamManagement() {
       ignore = true;
     };
 
-  }, [user, isAssigned, selectedTeamId]);
+  }, [user, hasTeams, selectedTeamId]);
 
   useEffect(() => {
     if (!user) {
       setMyTeams([]);
       setDiscoverFeed([]);
       setCanRequestJoin(false);
+      setMyTeamsLoaded(false);
       return;
     }
 
     let ignore = false;
+    setMyTeamsLoaded(false);
     getMyTeams(user)
       .then((teams) => {
         if (!ignore) {
           setMyTeams(teams);
+          setMyTeamsLoaded(true);
           if (teams.length === 0) {
+            setTeamsView('discover');
+              setHasInitializedTeamsView(true);
             setSelectedTeamId(null);
             return;
           }
+
+          setTeamsView('my');
+            setHasInitializedTeamsView(true);
 
           if (selectedTeamId != null && teams.some((team) => team.id === selectedTeamId)) {
             return;
           }
 
-          setSelectedTeamId(teams[0].id);
+          const captainFirstTeam = [...teams].sort((left, right) => {
+            const leftCaptain = Boolean(left?.isCaptain);
+            const rightCaptain = Boolean(right?.isCaptain);
+
+            if (leftCaptain !== rightCaptain) {
+              return leftCaptain ? -1 : 1;
+            }
+
+            return String(left?.name || '').localeCompare(String(right?.name || ''));
+          })[0];
+
+          setSelectedTeamId(captainFirstTeam?.id ?? teams[0].id);
         }
       })
       .catch(() => {
         if (!ignore) {
           setMyTeams([]);
+          setMyTeamsLoaded(true);
+          setTeamsView('discover');
+          setHasInitializedTeamsView(true);
         }
       });
 
@@ -168,6 +336,7 @@ function TeamManagement() {
     if (!user) {
       setDiscoverFeed([]);
       setCanRequestJoin(false);
+      setHasInitializedTeamsView(false);
       return;
     }
 
@@ -215,15 +384,69 @@ function TeamManagement() {
     };
   }, [user, isCaptain, activeTeamId, savingAction]);
 
+  useEffect(() => {
+    if (!isCaptain || !showMyTeamsPanel || !hasTeams) {
+      setIsEditPanelOpen(false);
+    }
+  }, [isCaptain, showMyTeamsPanel, hasTeams]);
+
+  useEffect(() => {
+    setJoinRequestPage(1);
+  }, [joinRequestSearch, joinRequests]);
+
+  const refreshRoster = async (activeUser = user, requestedTeamId = selectedTeamId) => {
+    if (!activeUser) return;
+    const [roster, teams, discover] = await Promise.all([
+      getTeamRoster(activeUser, requestedTeamId),
+      getMyTeams(activeUser),
+      discoverTeams(activeUser),
+    ]);
+    setMembers(roster.members || []);
+    setTeamInfo({
+      teamId: roster.teamId,
+      teamName: roster.teamName,
+      teamLogoUrl: roster.teamLogoUrl || '',
+      teamDescription: roster.teamDescription || '',
+      memberLimit: roster.memberLimit ?? null,
+      memberCount: roster.memberCount ?? 0,
+      preferredGames: Array.isArray(roster.preferredGames) ? roster.preferredGames : [],
+      enlistedTournaments: Array.isArray(roster.enlistedTournaments) ? roster.enlistedTournaments : [],
+      captainUserId: roster.captainUserId,
+    });
+    setSelectedTeamId(roster.teamId ?? null);
+    setMyTeams(teams);
+    setDiscoverFeed(discover.teams || []);
+    setCanRequestJoin(Boolean(discover.canRequestJoin));
+    return { roster, teams, discover };
+  };
+
+  const normalizeTeamName = (value) => String(value || '').trim().toLowerCase();
+
+  const closeCreateTeamModal = () => {
+    setCreateTeamOpen(false);
+    setCreateTeamError('');
+  };
+
   const handleCreateTeam = async (event) => {
     event.preventDefault();
-    setError('');
-    setNotice('');
+    setCreateTeamError('');
+    clearNotice();
     if (!user) return;
 
     const trimmed = teamName.trim();
     if (!trimmed) {
-      setError('Please enter a team name.');
+      setCreateTeamError('Please enter a team name.');
+      return;
+    }
+
+    const normalizedInputName = normalizeTeamName(trimmed);
+    const existingTeamNames = new Set([
+      ...discoverFeed.map((team) => normalizeTeamName(team?.name)),
+      ...myTeams.map((team) => normalizeTeamName(team?.name)),
+    ].filter(Boolean));
+
+    if (existingTeamNames.has(normalizedInputName)) {
+      setCreateTeamError('That team name is already taken.');
       return;
     }
 
@@ -241,6 +464,8 @@ function TeamManagement() {
 
       updateUser(nextUser);
       setTeamName('');
+      setCreateTeamError('');
+      closeCreateTeamModal();
 
       const roster = await getTeamRoster(nextUser);
       setMembers(roster.members || []);
@@ -249,6 +474,8 @@ function TeamManagement() {
         teamName: roster.teamName || resolvedName,
         teamLogoUrl: roster.teamLogoUrl || '',
         teamDescription: roster.teamDescription || '',
+        memberLimit: roster.memberLimit ?? null,
+        memberCount: roster.memberCount ?? 0,
         preferredGames: Array.isArray(roster.preferredGames) ? roster.preferredGames : [],
         enlistedTournaments: Array.isArray(roster.enlistedTournaments) ? roster.enlistedTournaments : [],
         captainUserId: roster.captainUserId ?? (created?.captainUserId ?? user.id ?? null),
@@ -259,40 +486,18 @@ function TeamManagement() {
       const discover = await discoverTeams(nextUser);
       setDiscoverFeed(discover.teams || []);
       setCanRequestJoin(Boolean(discover.canRequestJoin));
+      setTeamsView('my');
+      showNotice('Team created successfully.');
     } catch (err) {
-      setError(err?.message || 'Failed to create team.');
+      setCreateTeamError(err?.message || 'Failed to create team.');
     } finally {
       setCreating(false);
     }
   };
 
-  const refreshRoster = async (activeUser = user, requestedTeamId = selectedTeamId) => {
-    if (!activeUser) return;
-    const [roster, teams, discover] = await Promise.all([
-      getTeamRoster(activeUser, requestedTeamId),
-      getMyTeams(activeUser),
-      discoverTeams(activeUser),
-    ]);
-    setMembers(roster.members || []);
-    setTeamInfo({
-      teamId: roster.teamId,
-      teamName: roster.teamName,
-      teamLogoUrl: roster.teamLogoUrl || '',
-      teamDescription: roster.teamDescription || '',
-      preferredGames: Array.isArray(roster.preferredGames) ? roster.preferredGames : [],
-      enlistedTournaments: Array.isArray(roster.enlistedTournaments) ? roster.enlistedTournaments : [],
-      captainUserId: roster.captainUserId,
-    });
-    setSelectedTeamId(roster.teamId ?? null);
-    setMyTeams(teams);
-    setDiscoverFeed(discover.teams || []);
-    setCanRequestJoin(Boolean(discover.canRequestJoin));
-    return { roster, teams, discover };
-  };
-
   const onSelectTeam = async (teamId) => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     setSelectedTeamId(teamId);
@@ -306,16 +511,18 @@ function TeamManagement() {
   const onAddMember = async (event) => {
     event.preventDefault();
     setError('');
-    setNotice('');
+    clearNotice();
+    setMemberInputError('');
     if (!user) return;
 
     setSavingAction('add');
     try {
       await addTeamMember(user, memberUsername, activeTeamId);
       setMemberUsername('');
+      setMemberInputError('');
       await refreshRoster(user, activeTeamId);
     } catch (err) {
-      setError(err?.message || 'Failed to add member.');
+      setMemberInputError(err?.message || 'Failed to add member.');
     } finally {
       setSavingAction('');
     }
@@ -323,7 +530,7 @@ function TeamManagement() {
 
   const onRemoveMember = async (username) => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     setSavingAction(`remove:${username}`);
@@ -339,7 +546,7 @@ function TeamManagement() {
 
   const onAssignCaptain = async (username) => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     setSavingAction(`captain:${username}`);
@@ -355,7 +562,7 @@ function TeamManagement() {
 
   const onLeaveTeam = async () => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     if (isCaptain) {
@@ -384,7 +591,7 @@ function TeamManagement() {
   const onRenameTeam = async (event) => {
     event.preventDefault();
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     if (!isCaptain) {
@@ -411,7 +618,7 @@ function TeamManagement() {
       setRenameValue(resolvedName);
       const teams = await getMyTeams(user);
       setMyTeams(teams);
-      setNotice('Team renamed successfully.');
+      showNotice('Team renamed successfully.');
     } catch (err) {
       setError(err?.message || 'Failed to rename team.');
     } finally {
@@ -422,11 +629,16 @@ function TeamManagement() {
   const onSaveTeamProfile = async (event) => {
     event.preventDefault();
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     if (!isCaptain) {
       setError('Only the captain can update team profile details.');
+      return;
+    }
+
+    if (memberLimitError) {
+      setError(memberLimitError);
       return;
     }
 
@@ -435,10 +647,11 @@ function TeamManagement() {
       await updateTeamProfile(user, {
         logoUrl,
         description,
+        memberLimit: memberLimitInput === '' ? null : Number(memberLimitInput),
         preferredGames: preferredGamesInput,
       }, activeTeamId);
       await refreshRoster(user, activeTeamId);
-      setNotice('Team profile updated.');
+      showNotice('Team profile updated.');
     } catch (err) {
       setError(err?.message || 'Failed to update team profile.');
     } finally {
@@ -446,30 +659,21 @@ function TeamManagement() {
     }
   };
 
-  const onRequestJoinByName = async (event) => {
-    event.preventDefault();
+  const onRequestJoinFromFeed = async (teamId) => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
-    const teamNameValue = joinTeamName.trim();
-    if (!teamNameValue) {
-      setError('Enter a team name to request joining.');
-      return;
-    }
-
-    setSavingAction('joinByName');
+    setSavingAction(`join:${teamId}`);
     try {
       await requestTeamJoin(user, {
-        teamName: teamNameValue,
-        message: joinRequestMessage,
+        teamId,
       });
-      setJoinTeamName('');
-      setJoinRequestMessage('');
-      setNotice('Your request will be reviewed by the team captain.');
+      setSelectedDiscoverTeam((current) => (current && current.id === teamId ? { ...current, hasPendingRequest: true } : current));
       const discover = await discoverTeams(user);
       setDiscoverFeed(discover.teams || []);
       setCanRequestJoin(Boolean(discover.canRequestJoin));
+      showNotice('Your request will be reviewed by the team captain.');
     } catch (err) {
       setError(err?.message || 'Failed to send join request.');
     } finally {
@@ -477,23 +681,23 @@ function TeamManagement() {
     }
   };
 
-  const onRequestJoinFromFeed = async (teamId) => {
+  const onCancelJoinRequestFromFeed = async (teamId) => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
-    setSavingAction(`join:${teamId}`);
+    setSavingAction(`cancel:${teamId}`);
     try {
-      await requestTeamJoin(user, {
+      await cancelTeamJoinRequest(user, {
         teamId,
-        message: joinRequestMessage,
       });
-      setNotice('Your request will be reviewed by the team captain.');
+      setSelectedDiscoverTeam((current) => (current && current.id === teamId ? { ...current, hasPendingRequest: false } : current));
       const discover = await discoverTeams(user);
       setDiscoverFeed(discover.teams || []);
       setCanRequestJoin(Boolean(discover.canRequestJoin));
+      showNotice('Your join request was canceled.');
     } catch (err) {
-      setError(err?.message || 'Failed to send join request.');
+      setError(err?.message || 'Failed to cancel join request.');
     } finally {
       setSavingAction('');
     }
@@ -501,7 +705,7 @@ function TeamManagement() {
 
   const onReviewJoinRequest = async (requestId, action) => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     const token = `${action}:${requestId}`;
@@ -516,7 +720,7 @@ function TeamManagement() {
       await refreshRoster(user, activeTeamId);
       const requests = await getTeamJoinRequests(user, activeTeamId);
       setJoinRequests(requests);
-      setNotice(`Join request ${action}d successfully.`);
+      showNotice(`Join request ${action}d successfully.`);
     } catch (err) {
       setError(err?.message || 'Failed to review join request.');
     } finally {
@@ -526,7 +730,7 @@ function TeamManagement() {
 
   const onDeleteTeam = async () => {
     setError('');
-    setNotice('');
+    clearNotice();
     if (!user) return;
 
     if (!isCaptain) {
@@ -547,7 +751,7 @@ function TeamManagement() {
       });
       setRenameValue('');
       setMemberUsername('');
-      setNotice('Team deleted.');
+      showNotice('Team deleted.');
     } catch (err) {
       setError(err?.message || 'Failed to delete team.');
     } finally {
@@ -555,116 +759,245 @@ function TeamManagement() {
     }
   };
 
+  const filteredDiscoverTeams = useMemo(() => {
+    const query = discoverSearch.trim().toLowerCase();
+    if (!query) {
+      return discoverFeed;
+    }
+
+    return discoverFeed.filter((team) =>
+      String(team.name || '').toLowerCase().includes(query)
+    );
+  }, [discoverFeed, discoverSearch]);
+
+  const discoverTotalPages = Math.max(1, Math.ceil(filteredDiscoverTeams.length / DISCOVER_PAGE_SIZE));
+  const discoverSafePage = Math.min(discoverPage, discoverTotalPages - 1);
+  const pagedDiscoverTeams = filteredDiscoverTeams.slice(
+    discoverSafePage * DISCOVER_PAGE_SIZE,
+    discoverSafePage * DISCOVER_PAGE_SIZE + DISCOVER_PAGE_SIZE
+  );
+  const discoverGridItems = [
+    ...pagedDiscoverTeams,
+    ...Array.from({ length: Math.max(0, DISCOVER_PAGE_SIZE - pagedDiscoverTeams.length) }, () => null),
+  ];
+
+  const discoverRosterMembers = useMemo(() => {
+    if (!activeDiscoverTeam || !Array.isArray(activeDiscoverTeam.members)) {
+      return [];
+    }
+
+    return activeDiscoverTeam.members;
+  }, [activeDiscoverTeam]);
+
+  const discoverRosterTotalPages = Math.max(1, Math.ceil(discoverRosterMembers.length / DISCOVER_ROSTER_PAGE_SIZE));
+  const discoverRosterSafePage = Math.min(discoverRosterPage, discoverRosterTotalPages - 1);
+  const discoverRosterSlice = discoverRosterMembers.slice(
+    discoverRosterSafePage * DISCOVER_ROSTER_PAGE_SIZE,
+    discoverRosterSafePage * DISCOVER_ROSTER_PAGE_SIZE + DISCOVER_ROSTER_PAGE_SIZE
+  );
+
+  const discoverFilteredTournaments = useMemo(() => {
+    if (!activeDiscoverTeam || !Array.isArray(activeDiscoverTeam.enlistedTournaments)) {
+      return [];
+    }
+
+    const eligible = activeDiscoverTeam.enlistedTournaments.filter((entry) => {
+      const status = String(entry?.status || '').toLowerCase();
+      return status === 'ongoing' || status === 'upcoming';
+    });
+
+    return eligible.filter((entry) => String(entry?.status || '').toLowerCase() === discoverTournamentFilter);
+  }, [activeDiscoverTeam, discoverTournamentFilter]);
+
+  const discoverTournamentTotalPages = Math.max(1, Math.ceil(discoverFilteredTournaments.length / DISCOVER_TOURNAMENT_PAGE_SIZE));
+  const discoverTournamentSafePage = Math.min(discoverTournamentPage, discoverTournamentTotalPages - 1);
+  const discoverTournamentSlice = discoverFilteredTournaments.slice(
+    discoverTournamentSafePage * DISCOVER_TOURNAMENT_PAGE_SIZE,
+    discoverTournamentSafePage * DISCOVER_TOURNAMENT_PAGE_SIZE + DISCOVER_TOURNAMENT_PAGE_SIZE
+  );
+  const isDiscoverTeamFull = Boolean(
+    activeDiscoverTeam
+    && activeDiscoverTeam.memberLimit != null
+    && activeDiscoverTeam.memberCount >= activeDiscoverTeam.memberLimit
+  );
+
+  const filteredJoinRequests = useMemo(() => {
+    const query = joinRequestSearch.trim().toLowerCase();
+    if (!query) {
+      return joinRequests;
+    }
+
+    return joinRequests.filter((request) => {
+      const username = String(request?.requesterUsername || '').toLowerCase();
+      const email = String(request?.requesterEmail || '').toLowerCase();
+      return username.includes(query) || email.includes(query);
+    });
+  }, [joinRequests, joinRequestSearch]);
+
+  const joinRequestTotalPages = Math.max(1, Math.ceil(filteredJoinRequests.length / JOIN_REQUESTS_PAGE_SIZE));
+  const joinRequestSafePage = Math.min(joinRequestPage, joinRequestTotalPages);
+  const joinRequestStart = (joinRequestSafePage - 1) * JOIN_REQUESTS_PAGE_SIZE;
+  const pagedJoinRequests = filteredJoinRequests.slice(
+    joinRequestStart,
+    joinRequestStart + JOIN_REQUESTS_PAGE_SIZE
+  );
+
   return (
     <section className="team-management-page">
-      <article className="surface-card" style={{ marginTop: '1rem' }}>
-        <h3>My Teams</h3>
-        {myTeams.length === 0 ? (
-          <p style={{ marginTop: '0.55rem' }}>You are not enrolled in any teams yet.</p>
-        ) : (
-          <div className="my-teams-list" style={{ marginTop: '0.7rem' }}>
-            {myTeams.map((team) => (
-              <button
-                key={team.id}
-                type="button"
-                className={`my-teams-chip ${activeTeamId === team.id ? 'is-active' : ''}`}
-                onClick={() => onSelectTeam(team.id)}
-              >
-                {team.name}
-                {team.isCaptain ? ' (Captain)' : ''}
-              </button>
-            ))}
-          </div>
-        )}
+      <article className="surface-card team-view-switch-card" style={{ marginTop: '1rem' }}>
+        <div className="team-view-switch">
+          {hasTeams ? (
+            <button
+              type="button"
+              className={`team-view-switch-btn ${showMyTeamsPanel ? 'is-active' : ''}`}
+              onClick={() => {
+                setTeamsView('my');
+                if (!selectedTeamId && sortedMyTeams.length > 0) {
+                  setSelectedTeamId(sortedMyTeams[0].id);
+                }
+              }}
+            >
+              Browse My Teams
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={`team-view-switch-btn ${showDiscoverPanel ? 'is-active' : ''}`}
+            onClick={() => setTeamsView('discover')}
+          >
+            Browse Existing Teams
+          </button>
+          <button
+            type="button"
+            className="team-view-switch-btn"
+            onClick={() => {
+              setCreateTeamError('');
+              setCreateTeamOpen(true);
+            }}
+          >
+            Create Team
+          </button>
+        </div>
       </article>
 
-      {notice ? (
+      {!teamsView ? (
+        <p className="team-view-switch-hint">Select a view above to continue.</p>
+      ) : null}
+
+      {teamsView && notice ? (
         <article className="surface-card" style={{ marginTop: '1rem' }}>
           <p className="team-notice-text">{notice}</p>
         </article>
       ) : null}
 
-      {!isAssigned ? (
+      {showMyTeamsPanel ? (
+        <article className="surface-card" style={{ marginTop: '1rem' }}>
+          <h3>My Teams</h3>
+          {myTeams.length === 0 ? (
+            <p style={{ marginTop: '0.55rem' }}>You are not enrolled in any teams yet.</p>
+          ) : (
+            <div className="my-teams-list" style={{ marginTop: '0.7rem' }}>
+              {sortedMyTeams.map((team) => (
+                <button
+                  key={team.id}
+                  type="button"
+                  className={`my-teams-chip ${activeTeamId === team.id ? 'is-active' : ''}`}
+                  onClick={() => onSelectTeam(team.id)}
+                >
+                  {team.name}
+                  {team.isCaptain ? ' (Captain)' : ''}
+                </button>
+              ))}
+            </div>
+          )}
+        </article>
+      ) : null}
+
+      {showDiscoverPanel ? (
         <article className="surface-card team-empty-card" style={{ marginTop: '1rem' }}>
           <div className="team-empty-state">
-            <div className="team-empty-state-copy">
-              <h3>You're not assigned to any team</h3>
-              <p>
-                Create a team or request to join an existing team.
-              </p>
-            </div>
-
-            <form onSubmit={handleCreateTeam} className="team-empty-form">
-              <label>
-                Team name
-                <input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Enter a team name" />
-              </label>
-              <div className="cta-row">
-                <button type="submit" className="primary-btn team-empty-submit" disabled={creating}>{creating ? 'Creating...' : 'Create Team'}</button>
-              </div>
-            </form>
-
-            <form onSubmit={onRequestJoinByName} className="team-empty-form">
-              <label>
-                Join team by name
-                <input
-                  value={joinTeamName}
-                  onChange={(e) => setJoinTeamName(e.target.value)}
-                  placeholder="Enter exact team name"
-                  disabled={!canRequestJoin || savingAction === 'joinByName'}
-                />
-              </label>
-              <label>
-                Optional join request message
-                <input
-                  value={joinRequestMessage}
-                  onChange={(e) => setJoinRequestMessage(e.target.value)}
-                  placeholder="Tell the captain why you want to join"
-                  disabled={!canRequestJoin || savingAction === 'joinByName'}
-                />
-              </label>
-              <div className="cta-row">
-                <button type="submit" className="primary-btn team-empty-submit" disabled={!canRequestJoin || savingAction === 'joinByName'}>
-                  {savingAction === 'joinByName' ? 'Requesting...' : 'Request to Join'}
-                </button>
-              </div>
-              {!canRequestJoin ? (
-                <p className="team-join-disabled-note">Join requests are available only when you are not enrolled in any team.</p>
-              ) : null}
-            </form>
-
             <div className="team-discover-block">
-              <h3>Browse Existing Teams</h3>
+              <div className="team-discover-toolbar">
+                <h3>Browse Existing Teams</h3>
+                <label className="team-discover-search-field">
+                  <input
+                    type="text"
+                    value={discoverSearch}
+                    onChange={(event) => {
+                      setDiscoverSearch(event.target.value);
+                      setDiscoverPage(0);
+                    }}
+                    placeholder="Search teams by name..."
+                  />
+                </label>
+              </div>
+
               <div className="team-discover-grid">
-                {discoverFeed.map((team) => (
+                {discoverGridItems.map((team, cardIndex) => {
+                  if (!team) {
+                    return <article key={`discover-placeholder-${cardIndex}`} className="team-discover-card is-placeholder" aria-hidden="true" />;
+                  }
+
+                  const preferredGames = Array.isArray(team.preferredGames) ? team.preferredGames : [];
+                  const visibleGames = preferredGames.slice(0, DISCOVER_VISIBLE_GAMES);
+                  const hasMoreGames = preferredGames.length > DISCOVER_VISIBLE_GAMES;
+
+                  return (
                   <article key={team.id} className="team-discover-card">
                     <div className="team-discover-header">
                       <h4>{team.name}</h4>
                       <span>{team.memberCount} members</span>
                     </div>
-                    {team.description ? <p>{team.description}</p> : <p>No description yet.</p>}
-                    {team.preferredGames.length > 0 ? (
-                      <p>Preferred games: {team.preferredGames.join(', ')}</p>
-                    ) : null}
-                    {team.enlistedTournaments.length > 0 ? (
-                      <p>Enlisted tournaments: {team.enlistedTournaments.map((entry) => entry.name).join(', ')}</p>
-                    ) : null}
+                    <p className="team-discover-brief">{team.description || 'No description yet.'}</p>
+
+                    <div className="team-discover-games" aria-label="Preferred games">
+                      {visibleGames.length > 0 ? visibleGames.map((game, index) => (
+                        <span key={`${team.id}-game-${index}`} className="team-game-chip">{game}</span>
+                      )) : <span className="team-game-chip">No games listed</span>}
+                      {hasMoreGames ? <span className="team-game-chip is-overflow">...</span> : null}
+                    </div>
 
                     <button
                       type="button"
-                      className="ghost-btn"
-                      disabled={!canRequestJoin || team.hasPendingRequest || savingAction === `join:${team.id}`}
-                      onClick={() => onRequestJoinFromFeed(team.id)}
+                      className="primary-btn"
+                      onClick={() => setSelectedDiscoverTeam(team)}
                     >
-                      {team.hasPendingRequest
-                        ? 'Request Pending'
-                        : savingAction === `join:${team.id}`
-                          ? 'Requesting...'
-                          : 'Join Team'}
+                      View Details
                     </button>
                   </article>
-                ))}
+                  );
+                })}
               </div>
+
+              {filteredDiscoverTeams.length === 0 ? (
+                <p className="team-empty-error">No teams match your search.</p>
+              ) : (
+                <div className="team-discover-pagination-row">
+                  <p>
+                    Showing {discoverSafePage * DISCOVER_PAGE_SIZE + 1}-
+                    {Math.min((discoverSafePage + 1) * DISCOVER_PAGE_SIZE, filteredDiscoverTeams.length)} of {filteredDiscoverTeams.length}
+                  </p>
+                  <div className="team-discover-pagination-controls">
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => setDiscoverPage((current) => Math.max(0, current - 1))}
+                      disabled={discoverSafePage === 0}
+                    >
+                      Previous
+                    </button>
+                    <span>Page {discoverSafePage + 1} / {discoverTotalPages}</span>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      onClick={() => setDiscoverPage((current) => Math.min(discoverTotalPages - 1, current + 1))}
+                      disabled={discoverSafePage >= discoverTotalPages - 1}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {error && <p className="error-text team-empty-error">{error}</p>}
@@ -672,18 +1005,31 @@ function TeamManagement() {
         </article>
       ) : null}
 
-      {error ? <p className="error-text" style={{ marginTop: '0.85rem' }}>{error}</p> : null}
+      {teamsView && error ? <p className="error-text" style={{ marginTop: '0.85rem' }}>{error}</p> : null}
 
-      {isAssigned ? (
+      {showMyTeamsPanel && hasTeams ? (
         <article className="surface-card team-profile-card" style={{ marginTop: '1rem' }}>
           <div className={`team-profile-preview ${!isCaptain ? 'is-member-scroll' : ''}`}>
-            {teamInfo.teamLogoUrl ? <img src={teamInfo.teamLogoUrl} alt={`${teamInfo.teamName} logo`} /> : null}
+            {teamInfo.teamLogoUrl && !profileLogoBroken ? (
+              <img
+                src={teamInfo.teamLogoUrl}
+                alt={`${teamInfo.teamName} logo`}
+                onError={() => setProfileLogoBroken(true)}
+              />
+            ) : (
+              <div className="team-profile-logo-placeholder" aria-label="No team logo">?</div>
+            )}
             <div>
               <h4>{teamInfo.teamName || 'Team'}</h4>
-              <p>{teamInfo.teamDescription || 'No team description yet.'}</p>
+              <p className={isCaptain ? 'team-profile-description-scroll' : ''}>{teamInfo.teamDescription || 'No description provided.'}</p>
+              <p style={{ marginTop: '0.35rem' }}>
+                <strong>Member limit:</strong> {teamInfo.memberLimit != null ? `${teamInfo.memberCount}/${teamInfo.memberLimit}` : `${teamInfo.memberCount}/No limit`}
+              </p>
               {teamInfo.preferredGames.length > 0 ? (
                 <p style={{ marginTop: '0.5rem' }}><strong>Preferred games:</strong> {teamInfo.preferredGames.join(', ')}</p>
-              ) : null}
+              ) : (
+                <p style={{ marginTop: '0.5rem' }}><strong>Preferred games:</strong> No preferred games provided.</p>
+              )}
             </div>
           </div>
           {!isCaptain ? (
@@ -697,9 +1043,20 @@ function TeamManagement() {
         </article>
       ) : null}
 
-      {isAssigned && isCaptain ? (
+      {showMyTeamsPanel && hasTeams && isCaptain ? (
         <div className="surface-card team-action-panel-card" style={{ marginTop: '1rem' }}>
-          <div className="team-action-panel">
+          <div className="team-action-panel-head">
+            <h3>Edit Team</h3>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => setIsEditPanelOpen((current) => !current)}
+            >
+              {isEditPanelOpen ? 'Minimize' : 'Open Edit Panel'}
+            </button>
+          </div>
+
+          {isEditPanelOpen ? <div className="team-action-panel">
             <form onSubmit={onRenameTeam} className="team-action-row">
                     <label className="team-inline-field">
                       Team name
@@ -713,7 +1070,18 @@ function TeamManagement() {
             <form onSubmit={onAddMember} className="team-action-row">
                     <label className="team-inline-field">
                       Add member by username
-                      <input value={memberUsername} onChange={(e) => setMemberUsername(e.target.value)} placeholder="Enter username" />
+                      <input
+                        value={memberUsername}
+                        onChange={(e) => {
+                          setMemberUsername(e.target.value);
+                          if (memberInputError) {
+                            setMemberInputError('');
+                          }
+                        }}
+                        placeholder={memberInputError || 'Enter username'}
+                        className={memberInputError ? 'team-input-error' : ''}
+                        aria-invalid={Boolean(memberInputError)}
+                      />
                     </label>
                     <button type="submit" className="primary-btn" disabled={savingAction === 'add'}>
                       {savingAction === 'add' ? 'Adding...' : 'Add Member'}
@@ -730,52 +1098,32 @@ function TeamManagement() {
                       <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your team" />
                     </label>
                     <label className="team-inline-field">
+                      Member limit (optional)
+                      <input
+                        type="number"
+                        min="1"
+                        value={memberLimitInput}
+                        onChange={(e) => {
+                          setMemberLimitInput(e.target.value);
+                          if (memberLimitError) {
+                            setMemberLimitError('');
+                          }
+                        }}
+                        placeholder={memberLimitError || 'No limit'}
+                        className={memberLimitError ? 'team-input-error' : ''}
+                        aria-invalid={Boolean(memberLimitError)}
+                      />
+                    </label>
+                    <label className="team-inline-field">
                       Preferred games (comma separated)
                       <input value={preferredGamesInput} onChange={(e) => setPreferredGamesInput(e.target.value)} placeholder="Valorant, CS2, Apex" />
                     </label>
                     <div className="team-action-row team-action-row-end">
-                      <button type="submit" className="primary-btn" disabled={savingAction === 'profile'}>
+                      <button type="submit" className="primary-btn" disabled={savingAction === 'profile' || Boolean(memberLimitError)}>
                         {savingAction === 'profile' ? 'Saving...' : 'Save Team Profile'}
                       </button>
                     </div>
             </form>
-
-            <div className="team-requests-block">
-                <h4>Join Requests</h4>
-                {joinRequests.length === 0 ? (
-                  <p>No pending join requests.</p>
-                ) : (
-                  <div className="team-requests-list">
-                    {joinRequests.map((request) => (
-                      <article key={request.id} className="team-request-row">
-                        <div>
-                          <strong>{request.requesterUsername}</strong>
-                          <p>{request.requesterEmail}</p>
-                          {request.message ? <p>{request.message}</p> : null}
-                        </div>
-                        <div className="team-request-actions">
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            onClick={() => onReviewJoinRequest(request.id, 'approve')}
-                            disabled={savingAction === `approve:${request.id}` || savingAction === `reject:${request.id}`}
-                          >
-                            {savingAction === `approve:${request.id}` ? 'Approving...' : 'Approve'}
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost-btn danger-btn"
-                            onClick={() => onReviewJoinRequest(request.id, 'reject')}
-                            disabled={savingAction === `approve:${request.id}` || savingAction === `reject:${request.id}`}
-                          >
-                            {savingAction === `reject:${request.id}` ? 'Rejecting...' : 'Reject'}
-                          </button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-            </div>
 
             <div className="team-action-row team-action-row-end">
                 <button type="button" className="ghost-btn danger-btn" onClick={onLeaveTeam} disabled={savingAction === 'leave'}>
@@ -785,16 +1133,13 @@ function TeamManagement() {
                   {savingAction === 'delete' ? 'Deleting...' : 'Delete Team'}
                 </button>
             </div>
-          </div>
+          </div> : <p className="team-action-panel-collapsed-note">Edit panel minimized. Open it to manage team settings.</p>}
         </div>
       ) : null}
 
-      {isAssigned ? (
+      {showMyTeamsPanel && hasTeams ? (
         <article className="surface-card team-roster-card" style={{ marginTop: '1rem' }}>
-          <h3>Roster Table</h3>
-          <p className="team-roster-context">
-            Viewing roster for: <strong>{teamInfo.teamName || 'No team selected'}</strong>
-          </p>
+          <h3 style={{ marginBottom: '0.6rem' }}>Roster Table</h3>
           {members.length > 0 ? (
             <TeamRoster
               members={members}
@@ -810,7 +1155,93 @@ function TeamManagement() {
         </article>
       ) : null}
 
-      {isAssigned ? (() => {
+      {showMyTeamsPanel && hasTeams && isCaptain ? (
+        <article className="surface-card team-join-requests-card" style={{ marginTop: '1rem' }}>
+          <h3 style={{ marginBottom: '0.6rem' }}>Join Requests</h3>
+          <div className="table-shell">
+            <div className="roster-toolbar">
+              <label className="roster-search-field">
+                <input
+                  type="text"
+                  value={joinRequestSearch}
+                  onChange={(event) => setJoinRequestSearch(event.target.value)}
+                  placeholder="Search by username or email"
+                />
+              </label>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedJoinRequests.length > 0 ? pagedJoinRequests.map((request) => (
+                  <tr key={request.id}>
+                    <td>{request.requesterUsername || '-'}</td>
+                    <td>{request.requesterEmail || '-'}</td>
+                    <td>
+                      <div className="roster-actions-row">
+                        <button
+                          type="button"
+                          className="ghost-btn"
+                          onClick={() => onReviewJoinRequest(request.id, 'approve')}
+                          disabled={savingAction === `approve:${request.id}` || savingAction === `reject:${request.id}`}
+                        >
+                          {savingAction === `approve:${request.id}` ? 'Approving...' : 'Approve'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-btn danger-btn"
+                          onClick={() => onReviewJoinRequest(request.id, 'reject')}
+                          disabled={savingAction === `approve:${request.id}` || savingAction === `reject:${request.id}`}
+                        >
+                          {savingAction === `reject:${request.id}` ? 'Rejecting...' : 'Reject'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={3}>No pending join requests found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            <div className="roster-pagination-row">
+              <span>
+                Showing {filteredJoinRequests.length === 0 ? 0 : joinRequestStart + 1}-
+                {Math.min(joinRequestStart + JOIN_REQUESTS_PAGE_SIZE, filteredJoinRequests.length)} of {filteredJoinRequests.length}
+              </span>
+              <div className="roster-pagination-controls">
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setJoinRequestPage((current) => Math.max(1, current - 1))}
+                  disabled={joinRequestSafePage <= 1}
+                >
+                  Previous
+                </button>
+                <span>Page {joinRequestSafePage} / {joinRequestTotalPages}</span>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setJoinRequestPage((current) => Math.min(joinRequestTotalPages, current + 1))}
+                  disabled={joinRequestSafePage >= joinRequestTotalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      ) : null}
+
+      {showMyTeamsPanel && hasTeams ? (() => {
         const filteredEnlisted = teamInfo.enlistedTournaments.filter((entry) =>
           entry.name.toLowerCase().includes(enlistedSearch.toLowerCase().trim())
         );
@@ -895,6 +1326,233 @@ function TeamManagement() {
           </article>
         );
       })() : null}
+
+      {activeDiscoverTeam ? (
+        <div className="tournament-modal-backdrop" role="presentation" onClick={() => setSelectedDiscoverTeam(null)}>
+          <article className="surface-card tournament-modal team-details-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="team-details-modal-head">
+              <h3>{activeDiscoverTeam.name}</h3>
+              <button type="button" className="ghost-btn" onClick={() => setSelectedDiscoverTeam(null)}>Close</button>
+            </div>
+
+            <div className="tournament-modal-layout">
+              <div className="tournament-modal-image-panel team-details-image-panel">
+                {activeDiscoverTeam.logoUrl && !discoverLogoBroken ? (
+                  <img
+                    src={activeDiscoverTeam.logoUrl}
+                    alt={`${activeDiscoverTeam.name} logo`}
+                    className="tournament-modal-image team-details-modal-image"
+                    onError={() => setDiscoverLogoBroken(true)}
+                  />
+                ) : (
+                  <div className="tournament-modal-image-placeholder">?</div>
+                )}
+              </div>
+              <div className="tournament-modal-copy-panel">
+                <h4>Team Overview</h4>
+                <section className="team-details-desc-section">
+                  <p className="tournament-modal-description team-details-desc-scroll">{activeDiscoverTeam.description || 'No description yet.'}</p>
+                  <p className="team-details-preferred-games-text">
+                    <strong>Preferred games:</strong> {activeDiscoverTeam.preferredGames?.length ? activeDiscoverTeam.preferredGames.join(', ') : 'Not specified'}
+                  </p>
+                </section>
+
+                <p className="team-details-preferred-games-text">
+                  <strong>Members:</strong> {activeDiscoverTeam.memberCount}
+                </p>
+                {activeDiscoverTeam.memberLimit != null ? (
+                  <p className="team-details-preferred-games-text">
+                    <strong>Member limit:</strong> {activeDiscoverTeam.memberCount}/{activeDiscoverTeam.memberLimit}
+                  </p>
+                ) : null}
+                <p className="team-details-preferred-games-text">
+                  <strong>Enlisted tournaments:</strong> {activeDiscoverTeam.enlistedTournaments?.length || 0}
+                </p>
+              </div>
+            </div>
+
+            <section className="team-details-roster-section">
+              <div className="team-details-subhead-row">
+                <h5>Roster</h5>
+                <span>Page {discoverRosterSafePage + 1} / {discoverRosterTotalPages}</span>
+              </div>
+              <div className="team-details-roster-table-shell">
+                <table className="team-details-roster-table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Role</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {discoverRosterSlice.length > 0 ? discoverRosterSlice.map((member) => (
+                      <tr key={`${member.id}-${member.username}`}>
+                        <td>{member.username}</td>
+                        <td>{member.role}</td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={2}>No roster members found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="team-details-mini-pagination">
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setDiscoverRosterPage((page) => Math.max(0, page - 1))}
+                  disabled={discoverRosterSafePage === 0}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setDiscoverRosterPage((page) => Math.min(discoverRosterTotalPages - 1, page + 1))}
+                  disabled={discoverRosterSafePage >= discoverRosterTotalPages - 1}
+                >
+                  Next
+                </button>
+              </div>
+            </section>
+
+            <section className="team-details-tournaments-section">
+              <div className="team-details-subhead-row">
+                <h5>Enlisted Tournaments</h5>
+                <label className="team-details-tournament-filter">
+                  <span>Filter</span>
+                  <select
+                    value={discoverTournamentFilter}
+                    onChange={(event) => setDiscoverTournamentFilter(event.target.value)}
+                  >
+                    <option value="ongoing">Ongoing</option>
+                    <option value="upcoming">Upcoming</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="team-details-roster-table-shell">
+                <table className="team-details-roster-table">
+                  <thead>
+                    <tr>
+                      <th>Tournament</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {discoverTournamentSlice.length > 0 ? discoverTournamentSlice.map((entry) => (
+                      <tr
+                        key={`discover-tournament-${entry.id}`}
+                        className="team-details-tournament-row-item"
+                        onClick={() => navigate(`/tournaments/${entry.id}`)}
+                      >
+                        <td>{entry.name}</td>
+                        <td className="team-details-tournament-status">{entry.status || '-'}</td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={2}>No {discoverTournamentFilter} tournaments found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="team-details-mini-pagination">
+                <span>Page {discoverTournamentSafePage + 1} / {discoverTournamentTotalPages}</span>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setDiscoverTournamentPage((page) => Math.max(0, page - 1))}
+                  disabled={discoverTournamentSafePage === 0}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => setDiscoverTournamentPage((page) => Math.min(discoverTournamentTotalPages - 1, page + 1))}
+                  disabled={discoverTournamentSafePage >= discoverTournamentTotalPages - 1}
+                >
+                  Next
+                </button>
+              </div>
+            </section>
+
+            <div className="team-details-modal-actions">
+              <button
+                type="button"
+                className={activeDiscoverTeam.isMember
+                  ? 'ghost-btn team-details-disabled-btn'
+                  : isDiscoverTeamFull
+                    ? 'ghost-btn team-details-disabled-btn'
+                    : activeDiscoverTeam.hasPendingRequest
+                    ? 'ghost-btn danger-btn'
+                    : 'primary-btn'}
+                disabled={activeDiscoverTeam.isMember || isDiscoverTeamFull || savingAction === `join:${activeDiscoverTeam.id}` || savingAction === `cancel:${activeDiscoverTeam.id}`}
+                onClick={() => {
+                  if (activeDiscoverTeam.isMember) {
+                    return;
+                  }
+
+                  if (isDiscoverTeamFull) {
+                    return;
+                  }
+
+                  if (activeDiscoverTeam.hasPendingRequest) {
+                    onCancelJoinRequestFromFeed(activeDiscoverTeam.id);
+                    return;
+                  }
+
+                  onRequestJoinFromFeed(activeDiscoverTeam.id);
+                }}
+              >
+                {activeDiscoverTeam.isMember
+                  ? 'Already a Member'
+                  : isDiscoverTeamFull
+                    ? 'Team is Full'
+                  : activeDiscoverTeam.hasPendingRequest
+                  ? (savingAction === `cancel:${activeDiscoverTeam.id}`
+                    ? 'Canceling...'
+                    : 'Cancel Request')
+                  : savingAction === `join:${activeDiscoverTeam.id}`
+                    ? 'Requesting...'
+                    : 'Request to Join'}
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {createTeamOpen ? (
+        <div className="tournament-modal-backdrop" role="presentation" onClick={closeCreateTeamModal}>
+          <article className="surface-card tournament-modal team-details-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="team-details-modal-head">
+              <h3>Create Team</h3>
+              <button type="button" className="ghost-btn" onClick={closeCreateTeamModal}>Close</button>
+            </div>
+
+            <form onSubmit={handleCreateTeam} className="team-create-modal-form">
+              <label className="team-inline-field">
+                Team name
+                <input
+                  value={teamName}
+                  onChange={(event) => setTeamName(event.target.value)}
+                  placeholder="Enter a team name"
+                />
+              </label>
+              {createTeamError ? <p className="error-text" style={{ marginTop: '0.55rem' }}>{createTeamError}</p> : null}
+              <div className="team-details-modal-actions">
+                <button type="submit" className="primary-btn" disabled={creating}>
+                  {creating ? 'Creating...' : 'Create Team'}
+                </button>
+              </div>
+            </form>
+          </article>
+        </div>
+      ) : null}
     </section>
   );
 }

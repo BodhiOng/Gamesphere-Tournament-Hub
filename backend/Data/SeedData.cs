@@ -102,6 +102,11 @@ namespace Gamesphere.Data
         private static void SeedSampleData(AppDbContext ctx)
         {
             var passwordHasher = new PasswordHasher<User>();
+            var loremFiveParagraphs = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non justo ac est convallis feugiat. Praesent tincidunt, arcu ac interdum cursus, sapien odio tempor justo, vitae volutpat augue elit id purus. Curabitur vulputate semper est, nec hendrerit nibh consequat at. Cras dapibus, sapien quis facilisis posuere, ipsum nisl sodales velit, vitae condimentum neque velit at lectus.\n\n" +
+                "Integer at justo feugiat, luctus libero vel, bibendum justo. Aliquam quis purus et augue interdum aliquam. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Aenean euismod, lorem vitae aliquet laoreet, odio augue tempor nisi, in posuere erat lectus vitae magna. Donec gravida, nisl vitae pharetra dignissim, mi dolor efficitur lorem, at accumsan massa eros et arcu.\n\n" +
+                "Mauris finibus turpis sit amet nisi feugiat, a vehicula nibh porta. Ut sed velit ac nibh interdum cursus. Fusce pellentesque sem ut sapien feugiat, non viverra est feugiat. Suspendisse potenti. Nam convallis, tellus ut aliquet aliquet, dolor felis congue mi, sit amet blandit augue neque in mauris. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.\n\n" +
+                "Nullam volutpat, sem vitae ullamcorper ultrices, massa odio tempus arcu, in mollis est nisi quis mauris. Duis nec purus dictum, ultrices erat in, euismod arcu. Quisque eget eros eu justo lobortis aliquam. Donec commodo, risus id sodales sodales, metus nunc placerat libero, eu malesuada mauris tortor non sem. In ac orci nec urna vulputate suscipit eget at justo.\n\n" +
+                "Etiam vitae turpis non justo volutpat vulputate. Phasellus ac nibh id arcu gravida tempor. Sed pretium, lorem non facilisis bibendum, nunc lorem laoreet arcu, a pulvinar enim nibh vitae lectus. Vestibulum finibus, lorem sed varius faucibus, metus erat volutpat magna, vitae rhoncus velit turpis sit amet lorem. Vivamus malesuada dui in lacus faucibus, vitae porttitor justo feugiat.";
 
             var admin = ctx.Users.FirstOrDefault(user => user.Email == "admin@example.com" || user.Username == "admin");
             if (admin == null)
@@ -136,42 +141,42 @@ namespace Gamesphere.Data
                 "Nova Core",
                 aceCaptain.Id,
                 "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=300&q=60",
-                "Precision-first tactical squad focused on objective control.",
+                loremFiveParagraphs,
                 "Valorant, CS2"
             );
             var quantumFive = CreateTeam(
                 "Quantum Five",
                 frostAim.Id,
                 "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=300&q=60",
-                "High-tempo entry team built around fast rotations and clutch play.",
+                loremFiveParagraphs,
                 "Apex Legends, Valorant"
             );
             var arcSyndicate = CreateTeam(
                 "Arc Syndicate",
                 driftPixel.Id,
                 "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=300&q=60",
-                "Flexible multi-role lineup that adapts to every bracket style.",
+                loremFiveParagraphs,
                 "League of Legends, Dota 2"
             );
             var velocityUnit = CreateTeam(
                 "Velocity Unit",
                 emberRush.Id,
                 "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=60",
-                "Aggressive fraggers with a high-pressure early game identity.",
+                loremFiveParagraphs,
                 "Counter-Strike 2, Rainbow Six Siege"
             );
             var zenithForge = CreateTeam(
                 "Zenith Forge",
                 novaByte.Id,
                 "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&q=60",
-                "Macro-heavy strategy roster specializing in late-game executions.",
+                loremFiveParagraphs,
                 "League of Legends, Valorant"
             );
             var hyperionPulse = CreateTeam(
                 "Hyperion Pulse",
                 riftRunner.Id,
                 "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?auto=format&fit=crop&w=300&q=60",
-                "Utility-driven team with disciplined comms and map control.",
+                loremFiveParagraphs,
                 "Apex Legends, Overwatch 2"
             );
 
@@ -276,7 +281,7 @@ namespace Gamesphere.Data
 
             ctx.SaveChanges();
 
-            var tournaments = new[]
+            var tournaments = new System.Collections.Generic.List<Tournament>
             {
                 new Tournament
                 {
@@ -284,9 +289,9 @@ namespace Gamesphere.Data
                     Name = "Valor Clash Spring Cup",
                     Title = "Spring Cup 2026",
                     Game = "Valorant",
-                    Region = "North America",
+                    Region = "Global",
                     Status = "Completed",
-                    PrizePool = "$5,000",
+                    PrizePool = "5000",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 5, 28, 18, 0, 0, DateTimeKind.Utc),
                     Image = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=70",
@@ -298,9 +303,9 @@ namespace Gamesphere.Data
                     Name = "Apex Rift Championship",
                     Title = "Rift Championship S1",
                     Game = "Apex Legends",
-                    Region = "Europe",
-                    Status = "Ongoing",
-                    PrizePool = "$8,000",
+                    Region = "EU",
+                    Status = "Live",
+                    PrizePool = "8000",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 3, 17, 0, 0, DateTimeKind.Utc),
                     Image = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=70",
@@ -314,7 +319,7 @@ namespace Gamesphere.Data
                     Game = "League of Legends",
                     Region = "Southeast Asia",
                     Status = "Upcoming",
-                    PrizePool = "$6,500",
+                    PrizePool = "6500",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 8, 16, 0, 0, DateTimeKind.Utc),
                     Image = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=70",
@@ -328,7 +333,7 @@ namespace Gamesphere.Data
                     Game = "Rainbow Six Siege",
                     Region = "Global",
                     Status = "Upcoming",
-                    PrizePool = "$12,000",
+                    PrizePool = "12000",
                     TeamSlots = 16,
                     StartDate = new DateTime(2026, 6, 14, 15, 0, 0, DateTimeKind.Utc),
                     Image = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=70",
@@ -340,9 +345,9 @@ namespace Gamesphere.Data
                     Name = "Overwatch Open Series",
                     Title = "Open Series Vol. 4",
                     Game = "Overwatch 2",
-                    Region = "Asia-Pacific",
-                    Status = "Ongoing",
-                    PrizePool = "$4,200",
+                    Region = "East Asia",
+                    Status = "Live",
+                    PrizePool = "4200",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 10, 14, 0, 0, DateTimeKind.Utc),
                     Image = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=70",
@@ -354,9 +359,9 @@ namespace Gamesphere.Data
                     Name = "Dota 2 Grand Clash",
                     Title = "Grand Clash Spring",
                     Game = "Dota 2",
-                    Region = "Europe",
+                    Region = "EU",
                     Status = "Upcoming",
-                    PrizePool = "$10,000",
+                    PrizePool = "10000",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 20, 16, 0, 0, DateTimeKind.Utc),
                     Image = "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?auto=format&fit=crop&w=800&q=70",
@@ -364,35 +369,63 @@ namespace Gamesphere.Data
                 }
             };
 
+            for (var index = 7; index <= 100; index++)
+            {
+                var status = index % 4 == 0
+                    ? "Completed"
+                    : (index % 4 == 1 ? "Live" : (index % 4 == 2 ? "Upcoming" : "Open"));
+
+                var game = index % 5 == 0
+                    ? "Valorant"
+                    : (index % 5 == 1
+                        ? "Apex Legends"
+                        : (index % 5 == 2
+                            ? "League of Legends"
+                            : (index % 5 == 3 ? "Overwatch 2" : "Dota 2")));
+
+                var region = index % 8 == 0
+                    ? "Global"
+                    : (index % 8 == 1
+                        ? "N/A"
+                        : (index % 8 == 2
+                            ? "EU"
+                            : (index % 8 == 3
+                                ? "SEA"
+                                : (index % 8 == 4
+                                    ? "East Asia"
+                                    : (index % 8 == 5
+                                        ? "South Asia"
+                                        : (index % 8 == 6 ? "LATAM" : "MENA"))))));
+
+                tournaments.Add(new Tournament
+                {
+                    PublicId = $"TRN-SEED{index:0000}",
+                    Name = $"Seed Showcase Tournament {index}",
+                    Title = $"Showcase Series #{index}",
+                    Game = game,
+                    Region = region,
+                    Status = status,
+                    PrizePool = $"{index * 150}",
+                    TeamSlots = 8,
+                    StartDate = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc).AddDays(index),
+                    Image = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=70",
+                    Description = loremFiveParagraphs
+                });
+            }
+
             ctx.Tournaments.AddRange(tournaments);
             ctx.SaveChanges();
 
-            ctx.Registrations.AddRange(
-                // Valor Clash Spring Cup — Nova Core, Quantum Five, Arc Syndicate
-                new Registration { TournamentId = tournaments[0].Id, TeamId = novaCore.Id, Approved = true },
-                new Registration { TournamentId = tournaments[0].Id, TeamId = quantumFive.Id, Approved = true },
-                new Registration { TournamentId = tournaments[0].Id, TeamId = arcSyndicate.Id, Approved = true },
-                // Apex Rift Championship — Arc Syndicate, Velocity Unit, Hyperion Pulse
-                new Registration { TournamentId = tournaments[1].Id, TeamId = arcSyndicate.Id, Approved = true },
-                new Registration { TournamentId = tournaments[1].Id, TeamId = velocityUnit.Id, Approved = true },
-                new Registration { TournamentId = tournaments[1].Id, TeamId = hyperionPulse.Id, Approved = true },
-                // Summoner Series Circuit — Zenith Forge, Hyperion Pulse, Nova Core
-                new Registration { TournamentId = tournaments[2].Id, TeamId = zenithForge.Id, Approved = true },
-                new Registration { TournamentId = tournaments[2].Id, TeamId = hyperionPulse.Id, Approved = true },
-                new Registration { TournamentId = tournaments[2].Id, TeamId = novaCore.Id, Approved = false },
-                // Siege Invitational — Velocity Unit, Quantum Five, Zenith Forge
-                new Registration { TournamentId = tournaments[3].Id, TeamId = velocityUnit.Id, Approved = true },
-                new Registration { TournamentId = tournaments[3].Id, TeamId = quantumFive.Id, Approved = true },
-                new Registration { TournamentId = tournaments[3].Id, TeamId = zenithForge.Id, Approved = false },
-                // Overwatch Open Series — Hyperion Pulse, Nova Core, Velocity Unit
-                new Registration { TournamentId = tournaments[4].Id, TeamId = hyperionPulse.Id, Approved = true },
-                new Registration { TournamentId = tournaments[4].Id, TeamId = novaCore.Id, Approved = true },
-                new Registration { TournamentId = tournaments[4].Id, TeamId = velocityUnit.Id, Approved = false },
-                // Dota 2 Grand Clash — Arc Syndicate, Zenith Forge, Quantum Five
-                new Registration { TournamentId = tournaments[5].Id, TeamId = arcSyndicate.Id, Approved = true },
-                new Registration { TournamentId = tournaments[5].Id, TeamId = zenithForge.Id, Approved = true },
-                new Registration { TournamentId = tournaments[5].Id, TeamId = quantumFive.Id, Approved = false }
-            );
+            var oneTeamRegistrations = tournaments
+                .Select(tournament => new Registration
+                {
+                    TournamentId = tournament.Id,
+                    TeamId = arcSyndicate.Id,
+                    Approved = tournament.Status != "Upcoming"
+                })
+                .ToList();
+
+            ctx.Registrations.AddRange(oneTeamRegistrations);
 
             ctx.Matches.AddRange(
                 new Match

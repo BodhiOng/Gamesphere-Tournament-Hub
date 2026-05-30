@@ -3,6 +3,7 @@ using System;
 using Gamesphere.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gamesphere.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260530175731_AddTeamMemberLimit")]
+    partial class AddTeamMemberLimit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -150,11 +153,6 @@ namespace Gamesphere.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TournamentId");
-
-                    b.HasIndex("TeamId", "TournamentId")
-                        .IsUnique();
-
                     b.ToTable("Registrations");
                 });
 
@@ -185,7 +183,12 @@ namespace Gamesphere.Migrations
                     b.Property<string>("PreferredGames")
                         .HasColumnType("text");
 
+                    b.Property<int?>("TournamentId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TournamentId");
 
                     b.ToTable("Teams");
                 });
@@ -348,23 +351,11 @@ namespace Gamesphere.Migrations
                         .HasForeignKey("LeaderboardId");
                 });
 
-            modelBuilder.Entity("Gamesphere.Models.Registration", b =>
+            modelBuilder.Entity("Gamesphere.Models.Team", b =>
                 {
-                    b.HasOne("Gamesphere.Models.Team", "Team")
-                        .WithMany("Registrations")
-                        .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Gamesphere.Models.Tournament", "Tournament")
-                        .WithMany("Registrations")
-                        .HasForeignKey("TournamentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Team");
-
-                    b.Navigation("Tournament");
+                    b.HasOne("Gamesphere.Models.Tournament", null)
+                        .WithMany("Teams")
+                        .HasForeignKey("TournamentId");
                 });
 
             modelBuilder.Entity("Gamesphere.Models.TeamJoinRequest", b =>
@@ -424,14 +415,12 @@ namespace Gamesphere.Migrations
                 {
                     b.Navigation("Members");
 
-                    b.Navigation("Registrations");
-
                     b.Navigation("TeamMemberships");
                 });
 
             modelBuilder.Entity("Gamesphere.Models.Tournament", b =>
                 {
-                    b.Navigation("Registrations");
+                    b.Navigation("Teams");
                 });
 
             modelBuilder.Entity("Gamesphere.Models.User", b =>

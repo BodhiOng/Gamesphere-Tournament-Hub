@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner';
 import { useTournament } from '../../context/TournamentContext';
 
 function Tournaments() {
   const { tournaments, isLoading } = useTournament();
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({ search: '', game: 'all', region: 'all', status: 'all' });
   const [selectedTournament, setSelectedTournament] = useState(null);
 
@@ -164,10 +166,9 @@ function Tournaments() {
             aria-label="Tournament details"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="card-header">
-              <div>
-                <h3>{selectedTournament.name || 'Untitled Tournament'}</h3>
-              </div>
+            <div className="card-header tournament-modal-head">
+              <h3 className="tournament-modal-title">{selectedTournament.name || 'Untitled Tournament'}</h3>
+              <span className="tournament-modal-public-id">{selectedTournament.publicId || '-'}</span>
               <button type="button" className="ghost-btn" onClick={() => setSelectedTournament(null)}>Close</button>
             </div>
 
@@ -215,11 +216,21 @@ function Tournaments() {
                 <dt>Teams Registered</dt>
                 <dd>{selectedTournament.teamsCount ?? 0}</dd>
               </div>
-            </dl>
+              <button
+                type="button"
+                className="primary-btn tournament-modal-apply-btn"
+                onClick={() => {
+                  if (!selectedTournament?.id) {
+                    return;
+                  }
 
-            <div className="tournament-modal-grid">
-              <p><strong>Public ID:</strong> {selectedTournament.publicId || '-'}</p>
-            </div>
+                  setSelectedTournament(null);
+                  navigate(`/tournaments/${selectedTournament.id}`);
+                }}
+              >
+                Apply
+              </button>
+            </dl>
           </article>
         </div>
       ) : null}

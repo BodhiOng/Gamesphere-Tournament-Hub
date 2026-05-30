@@ -18,6 +18,6 @@ namespace Gamesphere.Models
         public string? Status { get; set; }
         public string? PrizePool { get; set; }
         public int? TeamSlots { get; set; }
-        public List<Team>? Teams { get; set; }
+        public List<Registration>? Registrations { get; set; }
     }
 }

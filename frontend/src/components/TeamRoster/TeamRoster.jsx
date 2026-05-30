@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveMember, onAssignCaptain, currentUserId, currentUsername }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
+  const pageSize = 10;
   const normalizedCurrentUsername = (currentUsername || '').trim().toLowerCase();
 
   const orderedMembers = useMemo(() => {
@@ -61,7 +61,7 @@ function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveM
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, pageSize, members, captainUserId]);
+  }, [searchQuery, members, captainUserId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMembers.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -78,15 +78,6 @@ function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveM
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search by username, role, status"
           />
-        </label>
-
-        <label className="roster-page-size-field">
-          Rows
-          <select value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))}>
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-          </select>
         </label>
       </div>
 

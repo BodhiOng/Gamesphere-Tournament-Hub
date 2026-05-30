@@ -21,6 +21,22 @@ namespace Gamesphere.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<Registration>()
+                .HasIndex(item => new { item.TeamId, item.TournamentId })
+                .IsUnique();
+
+            modelBuilder.Entity<Registration>()
+                .HasOne(item => item.Team)
+                .WithMany(team => team.Registrations)
+                .HasForeignKey(item => item.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Registration>()
+                .HasOne(item => item.Tournament)
+                .WithMany(tournament => tournament.Registrations)
+                .HasForeignKey(item => item.TournamentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<TeamMember>()
                 .HasIndex(tm => new { tm.TeamId, tm.UserId })
                 .IsUnique();

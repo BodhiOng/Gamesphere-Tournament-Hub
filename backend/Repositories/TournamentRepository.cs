@@ -17,14 +17,14 @@ namespace Gamesphere.Repositories
         {
             // include related teams/registrations so callers can inspect counts
             return _ctx.Tournaments
-                .Include(t => t.Teams)
+                .Include(t => t.Registrations)
                 .ToList();
         }
 
         public Tournament? Get(int id)
         {
             return _ctx.Tournaments
-                .Include(t => t.Teams)
+                .Include(t => t.Registrations)
                 .FirstOrDefault(t => t.Id == id);
         }
 
@@ -71,25 +71,6 @@ namespace Gamesphere.Repositories
                 // Remove registrations linked to this tournament
                 var regs = _ctx.Registrations.Where(r => r.TournamentId == id).ToList();
                 if (regs.Any()) _ctx.Registrations.RemoveRange(regs);
-
-                // Remove teams that reference this tournament (shadow FK)
-                var teams = _ctx.Teams.Where(t => EF.Property<int?>(t, "TournamentId") == id).ToList();
-                if (teams.Any())
-                {
-                    var teamIds = teams.Select(t => t.Id).ToList();
-
-                    // Detach users from teams before deleting teams to satisfy FK_Users_Teams_TeamId
-                    var linkedUsers = _ctx.Users
-                        .Where(u => EF.Property<int?>(u, "TeamId").HasValue && teamIds.Contains(EF.Property<int?>(u, "TeamId")!.Value))
-                        .ToList();
-
-                    foreach (var user in linkedUsers)
-                    {
-                        _ctx.Entry(user).Property("TeamId").CurrentValue = null;
-                    }
-
-                    _ctx.Teams.RemoveRange(teams);
-                }
             }
 
             _ctx.Tournaments.Remove(existing);
