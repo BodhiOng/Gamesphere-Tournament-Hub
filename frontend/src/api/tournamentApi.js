@@ -21,6 +21,7 @@ function normalizeTournament(item) {
     region: item.region,
     status: item.status,
     prizePool: item.prizePool,
+    venue: item.venue,
     startDate: item.startDate,
     teamSlots: item.teamSlots,
     teamsCount: Array.isArray(item.registrations)
@@ -62,6 +63,7 @@ export async function createTournament(payload) {
         Region: payload.region,
         Status: payload.status,
         PrizePool: payload.prizePool,
+        Venue: payload.venue,
       }),
     });
     return normalizeTournament(data);
@@ -80,4 +82,35 @@ export async function updateTournament(id, payload) {
 export async function deleteTournament(id, cascade = false) {
   const qs = cascade ? '?cascade=true' : '';
   return request(`/api/tournament/${id}${qs}`, { method: 'DELETE' });
+}
+
+export async function registerTeamForTournament(tournamentId, payload) {
+  return request(`/api/tournament/${tournamentId}/register`, {
+    method: 'POST',
+    body: JSON.stringify({
+      actorUserId: payload.actorUserId ?? null,
+      actorEmail: payload.actorEmail ?? null,
+      teamId: payload.teamId,
+    }),
+  });
+}
+
+export async function leaveTeamFromTournament(tournamentId, payload) {
+  return request(`/api/tournament/${tournamentId}/leave`, {
+    method: 'POST',
+    body: JSON.stringify({
+      actorUserId: payload.actorUserId ?? null,
+      actorEmail: payload.actorEmail ?? null,
+      teamId: payload.teamId,
+    }),
+  });
+}
+
+export async function getTournamentRegistrations(tournamentId) {
+  try {
+    const data = await request(`/api/tournament/${tournamentId}/registrations`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }

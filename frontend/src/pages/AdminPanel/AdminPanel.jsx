@@ -141,6 +141,7 @@ function AdminPanel() {
   const [tRegion, setTRegion] = useState('');
   const [tStatus, setTStatus] = useState('');
   const [tPrize, setTPrize] = useState('');
+  const [tVenue, setTVenue] = useState('');
   const [noTournamentsMessage, setNoTournamentsMessage] = useState('No tournament entry is available right now.');
 
   const handleCreateTournament = async (e) => {
@@ -165,6 +166,7 @@ function AdminPanel() {
         region: tRegion || null,
         status: tStatus || null,
         prizePool: tPrize !== '' ? String(tPrize) : null,
+        Venue: tVenue || null,
       };
 
       await createTournament(payload);
@@ -178,6 +180,7 @@ function AdminPanel() {
       setTRegion('');
       setTStatus('');
       setTPrize('');
+      setTVenue('');
       await loadTournaments();
       // optionally refresh tournaments list (not implemented)
     } catch (err) {
@@ -389,6 +392,11 @@ function AdminPanel() {
                       </label>
 
                       <label>
+                        Venue
+                        <input value={tVenue} onChange={(e) => setTVenue(e.target.value)} placeholder="Venue / location" />
+                      </label>
+
+                      <label>
                         Team slots
                         <input type="number" min="2" max="1024" value={tSlots} onChange={(e) => setTSlots(e.target.value)} required />
                       </label>
@@ -488,6 +496,10 @@ function AdminPanel() {
                     <div className="tournament-view-meta-item">
                       <dt>Prize pool</dt>
                       <dd>{selected.prizePool ?? '-'}</dd>
+                    </div>
+                    <div className="tournament-view-meta-item">
+                      <dt>Venue</dt>
+                      <dd>{selected.venue ?? '-'}</dd>
                     </div>
                     <div className="tournament-view-meta-item">
                       <dt>Status</dt>
@@ -661,6 +673,7 @@ function EditTournament({ id, onClose }) {
   const [region, setRegion] = useState('');
   const [status, setStatus] = useState('');
   const [prizePool, setPrizePool] = useState('');
+  const [venue, setVenue] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -678,6 +691,7 @@ function EditTournament({ id, onClose }) {
           setRegion(t.region ?? '');
           setStatus(t.status ?? '');
           setPrizePool(t.prizePool ?? '');
+          setVenue(t.venue ?? '');
         }
       } catch (err) {
         if (!ignore) setError(err.message || 'Failed to load');
@@ -710,6 +724,7 @@ function EditTournament({ id, onClose }) {
         Region: region || null,
         Status: status || null,
         PrizePool: prizePool !== '' ? String(prizePool) : null,
+        Venue: venue || null,
       });
       onClose();
     } catch (err) {
@@ -780,6 +795,11 @@ function EditTournament({ id, onClose }) {
               <label>
                 Prize pool
                 <input type="number" min="0" step="0.01" value={prizePool} onChange={(e) => setPrizePool(e.target.value)} />
+              </label>
+
+              <label>
+                Venue
+                <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Venue / location" />
               </label>
 
               <label>

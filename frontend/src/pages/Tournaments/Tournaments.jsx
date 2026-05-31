@@ -9,6 +9,8 @@ function Tournaments() {
   const [filters, setFilters] = useState({ search: '', game: 'all', region: 'all', status: 'all' });
   const [selectedTournament, setSelectedTournament] = useState(null);
 
+  const isApplyOpen = (status) => String(status || '').trim().toLowerCase() === 'open';
+
   const truncatePreview = (value, maxLength = 220) => {
     const text = (value || '').trim();
     if (!text) return 'No description available for this tournament yet.';
@@ -218,7 +220,8 @@ function Tournaments() {
               </div>
               <button
                 type="button"
-                className="primary-btn tournament-modal-apply-btn"
+                className="primary-btn tournament-modal-apply-btn team-details-disabled-btn"
+                disabled={!isApplyOpen(selectedTournament?.status)}
                 onClick={() => {
                   if (!selectedTournament?.id) {
                     return;

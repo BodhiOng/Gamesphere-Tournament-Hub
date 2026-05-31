@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import TeamRoster from '../../components/TeamRoster/TeamRoster';
 import {
   addTeamMember,
@@ -23,6 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 
 function TeamManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [members, setMembers] = useState([]);
   const [enlistedSearch, setEnlistedSearch] = useState('');
   const [enlistedPage, setEnlistedPage] = useState(0);
@@ -106,6 +107,23 @@ function TeamManagement() {
 
     return discoverFeed.find((team) => team.id === selectedDiscoverTeam.id) || selectedDiscoverTeam;
   }, [discoverFeed, selectedDiscoverTeam]);
+
+  useEffect(() => {
+    const viewParam = String(searchParams.get('view') || '').trim().toLowerCase();
+    const teamIdParam = Number(searchParams.get('teamId'));
+
+    if (viewParam === 'discover') {
+      setTeamsView('discover');
+    }
+
+    if (Number.isFinite(teamIdParam) && teamIdParam > 0) {
+      const matchingTeam = discoverFeed.find((team) => team.id === teamIdParam);
+      if (matchingTeam) {
+        setSelectedDiscoverTeam(matchingTeam);
+        setTeamsView('discover');
+      }
+    }
+  }, [searchParams, discoverFeed]);
 
   const clearNotice = () => {
     if (noticeTimerRef.current) {

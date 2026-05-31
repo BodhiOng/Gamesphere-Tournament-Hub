@@ -17,6 +17,7 @@ namespace Gamesphere.Models
         public string? Region { get; set; }
         public string? Status { get; set; }
         public string? PrizePool { get; set; }
+        public string? Venue { get; set; }
         public int? TeamSlots { get; set; }
         public List<Registration>? Registrations { get; set; }
     }

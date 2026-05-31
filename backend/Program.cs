@@ -43,8 +43,6 @@ builder.Services.AddScoped<ITournamentRepository, Gamesphere.Repositories.Tourna
 builder.Services.AddScoped<ITournamentService, Gamesphere.Services.TournamentService>();
 builder.Services.AddScoped<ITeamRepository, Gamesphere.Repositories.TeamRepository>();
 builder.Services.AddScoped<ITeamService, Gamesphere.Services.TeamService>();
-builder.Services.AddScoped<IMatchRepository, Gamesphere.Repositories.MatchRepository>();
-builder.Services.AddScoped<IMatchService, Gamesphere.Services.MatchService>();
 
 // SignalR
 builder.Services.AddSignalR();

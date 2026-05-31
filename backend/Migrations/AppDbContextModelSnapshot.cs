@@ -103,34 +103,6 @@ namespace Gamesphere.Migrations
                     b.ToTable("LeaderboardEntry");
                 });
 
-            modelBuilder.Entity("Gamesphere.Models.Match", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Result")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("ScheduledAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("TeamAId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TeamBId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TournamentId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Matches");
-                });
-
             modelBuilder.Entity("Gamesphere.Models.Registration", b =>
                 {
                     b.Property<int>("Id")
@@ -279,6 +251,9 @@ namespace Gamesphere.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("PrizePool")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Venue")
                         .HasColumnType("text");
 
                     b.Property<string>("PublicId")

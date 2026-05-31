@@ -90,7 +90,6 @@ namespace Gamesphere.Data
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"LeaderboardEntry\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"TeamMembers\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"TeamJoinRequests\"");
-            ctx.Database.ExecuteSqlRaw("DELETE FROM \"Matches\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"Registrations\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"AccountRequests\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"Users\"");
@@ -294,6 +293,7 @@ namespace Gamesphere.Data
                     PrizePool = "5000",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 5, 28, 18, 0, 0, DateTimeKind.Utc),
+                    Venue = "Neo Arena, Los Angeles",
                     Image = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=70",
                     Description = "A high-stakes Valorant bracket tournament for emerging rosters across the NA server. Teams compete in a double-elimination format with best-of-three rounds."
                 },
@@ -308,6 +308,7 @@ namespace Gamesphere.Data
                     PrizePool = "8000",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 3, 17, 0, 0, DateTimeKind.Utc),
+                    Venue = "Berlin Esports Hall",
                     Image = "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=70",
                     Description = "Europe's premier Apex Legends team championship. Six-team squads clash across three maps in a points-based league structure with weekly broadcast coverage."
                 },
@@ -322,6 +323,7 @@ namespace Gamesphere.Data
                     PrizePool = "6500",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 8, 16, 0, 0, DateTimeKind.Utc),
+                    Venue = "Singapore Civic Arena",
                     Image = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=70",
                     Description = "SEA's largest seasonal League of Legends circuit with promotion and relegation between three tiers. Open qualifier rounds run two weeks before the main event."
                 },
@@ -336,6 +338,7 @@ namespace Gamesphere.Data
                     PrizePool = "12000",
                     TeamSlots = 16,
                     StartDate = new DateTime(2026, 6, 14, 15, 0, 0, DateTimeKind.Utc),
+                    Venue = "London Docklands Studio",
                     Image = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=70",
                     Description = "A global invitational bringing together the top 16 Siege squads from six regions. The grand final is played on LAN with live spectator seating and streamed worldwide."
                 },
@@ -350,6 +353,7 @@ namespace Gamesphere.Data
                     PrizePool = "4200",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 10, 14, 0, 0, DateTimeKind.Utc),
+                    Venue = "Tokyo Broadcast Center",
                     Image = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=70",
                     Description = "APAC's open-bracket Overwatch 2 series welcoming both amateur and semi-pro rosters. Full role-lock rules apply. Matches are best-of-three in group stage, best-of-five in playoffs."
                 },
@@ -364,6 +368,7 @@ namespace Gamesphere.Data
                     PrizePool = "10000",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 20, 16, 0, 0, DateTimeKind.Utc),
+                    Venue = "Frankfurt Grand Arena",
                     Image = "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?auto=format&fit=crop&w=800&q=70",
                     Description = "A prestigious EU Dota 2 tournament featuring the spring season's highest-ranked squads. Swiss-system group stage feeds into a single-elimination playoff bracket."
                 }
@@ -408,6 +413,7 @@ namespace Gamesphere.Data
                     PrizePool = $"{index * 150}",
                     TeamSlots = 8,
                     StartDate = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc).AddDays(index),
+                    Venue = index % 2 == 0 ? "Main Stage" : "Secondary Arena",
                     Image = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=70",
                     Description = loremFiveParagraphs
                 });
@@ -416,83 +422,20 @@ namespace Gamesphere.Data
             ctx.Tournaments.AddRange(tournaments);
             ctx.SaveChanges();
 
-            var oneTeamRegistrations = tournaments
-                .Select(tournament => new Registration
-                {
-                    TournamentId = tournament.Id,
-                    TeamId = arcSyndicate.Id,
-                    Approved = tournament.Status != "Upcoming"
-                })
+            var seededRegistrations = tournaments
+                .SelectMany(
+                    (tournament, tournamentIndex) => allTeams.Select(
+                        (team, teamIndex) => new Registration
+                        {
+                            TournamentId = tournament.Id,
+                            TeamId = team.Id,
+                            Approved = tournament.Status != "Upcoming" && ((tournamentIndex + teamIndex) % 2 == 0)
+                        }
+                    )
+                )
                 .ToList();
 
-            ctx.Registrations.AddRange(oneTeamRegistrations);
-
-            ctx.Matches.AddRange(
-                new Match
-                {
-                    TournamentId = tournaments[0].Id,
-                    TeamAId = novaCore.Id,
-                    TeamBId = quantumFive.Id,
-                    ScheduledAt = new DateTime(2026, 5, 28, 19, 0, 0, DateTimeKind.Utc),
-                    Result = "Nova Core 2 - 1 Quantum Five"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[0].Id,
-                    TeamAId = novaCore.Id,
-                    TeamBId = arcSyndicate.Id,
-                    ScheduledAt = new DateTime(2026, 5, 29, 18, 0, 0, DateTimeKind.Utc),
-                    Result = "Nova Core 2 - 0 Arc Syndicate"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[1].Id,
-                    TeamAId = arcSyndicate.Id,
-                    TeamBId = velocityUnit.Id,
-                    ScheduledAt = new DateTime(2026, 6, 3, 18, 30, 0, DateTimeKind.Utc),
-                    Result = "Scheduled"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[1].Id,
-                    TeamAId = hyperionPulse.Id,
-                    TeamBId = velocityUnit.Id,
-                    ScheduledAt = new DateTime(2026, 6, 4, 17, 0, 0, DateTimeKind.Utc),
-                    Result = "Scheduled"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[2].Id,
-                    TeamAId = zenithForge.Id,
-                    TeamBId = hyperionPulse.Id,
-                    ScheduledAt = new DateTime(2026, 6, 8, 17, 30, 0, DateTimeKind.Utc),
-                    Result = "Zenith Forge 3 - 2 Hyperion Pulse"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[3].Id,
-                    TeamAId = velocityUnit.Id,
-                    TeamBId = quantumFive.Id,
-                    ScheduledAt = new DateTime(2026, 6, 14, 16, 0, 0, DateTimeKind.Utc),
-                    Result = "Scheduled"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[4].Id,
-                    TeamAId = hyperionPulse.Id,
-                    TeamBId = novaCore.Id,
-                    ScheduledAt = new DateTime(2026, 6, 10, 15, 0, 0, DateTimeKind.Utc),
-                    Result = "Scheduled"
-                },
-                new Match
-                {
-                    TournamentId = tournaments[5].Id,
-                    TeamAId = arcSyndicate.Id,
-                    TeamBId = zenithForge.Id,
-                    ScheduledAt = new DateTime(2026, 6, 20, 17, 0, 0, DateTimeKind.Utc),
-                    Result = "Scheduled"
-                }
-            );
+            ctx.Registrations.AddRange(seededRegistrations);
 
             var leaderboardOne = new Leaderboard
             {

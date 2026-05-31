@@ -22,6 +22,7 @@ namespace Gamesphere.DTOs
         public string? Region { get; set; }
         public string? Status { get; set; }
         public string? PrizePool { get; set; }
+        public string? Venue { get; set; }
         
     }
 }
