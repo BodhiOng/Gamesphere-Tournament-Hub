@@ -639,6 +639,28 @@ button {
   gap: 0.8rem;
 }
 
+.team-details-modal-head.with-public-id {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.team-details-modal-head.with-public-id h3 {
+  justify-self: start;
+}
+
+.team-details-modal-head.with-public-id .ghost-btn {
+  justify-self: end;
+}
+
+.team-details-modal-public-id {
+  justify-self: center;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.94rem;
+  letter-spacing: 0.04em;
+  color: var(--muted-ink);
+}
+
 .team-details-modal-head h3 {
   margin: 0;
 }
@@ -953,6 +975,29 @@ button {
 
 .team-profile-preview h4 {
   margin: 0 0 0.35rem;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.team-profile-title-row {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  gap: 0.55rem;
+  flex-wrap: nowrap;
+}
+
+.team-profile-public-id {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: var(--muted-ink);
+}
+
+.team-profile-content {
+  display: grid;
+  gap: 1rem;
 }
 
 .team-profile-preview p {
@@ -1102,13 +1147,7 @@ button {
   border: 1px solid transparent;
 }
 
-.team-enlisted-status.is-approved {
-  color: #9af3da;
-  background: rgba(27, 200, 166, 0.18);
-  border-color: rgba(27, 200, 166, 0.4);
-}
-
-.team-enlisted-status.is-pending {
+.team-enlisted-status.is-enlisted {
   color: #ffe2a7;
   background: rgba(255, 191, 73, 0.18);
   border-color: rgba(255, 191, 73, 0.4);
@@ -1329,6 +1368,9 @@ button {
 
 .tournaments-filter-grid {
   grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr));
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .tournament-list-single {
@@ -1364,6 +1406,31 @@ button {
   right: 0.95rem;
 }
 
+.status-pill.status-completed {
+  background: rgba(88, 181, 255, 0.2);
+  color: #86d0ff;
+}
+
+.status-pill.status-live {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff8f8f;
+}
+
+.status-pill.status-open {
+  background: rgba(27, 200, 166, 0.22);
+  color: var(--accent);
+}
+
+.status-pill.status-upcoming {
+  background: rgba(255, 209, 102, 0.2);
+  color: #ffd877;
+}
+
+.status-pill.status-unknown {
+  background: rgba(147, 194, 255, 0.16);
+  color: #c8def6;
+}
+
 .tournament-list-media {
   border: 1px solid rgba(147, 194, 255, 0.2);
   border-radius: 12px;
@@ -1390,6 +1457,13 @@ button {
   border-radius: 9px;
   border: 1px dashed rgba(147, 194, 255, 0.3);
   color: var(--muted);
+}
+
+.tournament-list-image-placeholder.failed {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
 }
 
 .tournament-list-description {
@@ -1514,6 +1588,13 @@ button {
   place-items: center;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.tournament-modal-image-placeholder.failed {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
 }
 
 .tournament-modal-copy-panel h4 {
@@ -1647,6 +1728,27 @@ select:focus {
 .auth-table td:last-child {
   width: auto;
   min-width: 260px; /* ensure action column can contain buttons on one row */
+}
+
+.admin-pagination-row {
+  margin-top: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.admin-pagination-summary {
+  margin: 0;
+}
+
+.admin-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 table {
@@ -1813,6 +1915,14 @@ td {
   place-items: center;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.tournament-view-image-placeholder.failed {
+  width: 100%;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
 }
 
 .tournament-view-copy-panel h4 {

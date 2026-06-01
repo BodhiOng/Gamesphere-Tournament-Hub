@@ -21,6 +21,7 @@ namespace Gamesphere.Controllers
         [HttpGet("user-schedule")]
         public IActionResult GetScheduleForUser(
             [FromQuery] int? actorUserId,
+            [FromQuery] string? actorUserPublicId,
             [FromQuery] string? actorEmail,
             [FromQuery] string? search = null,
             [FromQuery] string? game = null,
@@ -29,9 +30,14 @@ namespace Gamesphere.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 8)
         {
+            var normalizedActorUserPublicId = actorUserPublicId?.Trim();
+            var normalizedActorEmail = actorEmail?.Trim();
+
             var user = actorUserId.HasValue
                 ? _ctx.Users.FirstOrDefault(u => u.Id == actorUserId.Value)
-                : _ctx.Users.FirstOrDefault(u => u.Email == actorEmail);
+                : !string.IsNullOrWhiteSpace(normalizedActorUserPublicId)
+                    ? _ctx.Users.FirstOrDefault(u => u.PublicId == normalizedActorUserPublicId)
+                    : _ctx.Users.FirstOrDefault(u => u.Email == normalizedActorEmail);
 
             if (user == null) return NotFound("User not found.");
 
@@ -42,13 +48,16 @@ namespace Gamesphere.Controllers
             var normalizedStatus = (status ?? string.Empty).Trim().ToLowerInvariant();
             var normalizedSort = (sort ?? string.Empty).Trim().ToLowerInvariant();
 
-            var teamIds = _ctx.TeamMembers
-                .Where(tm => tm.UserId == user.Id)
-                .Select(tm => tm.TeamId)
+            var teamPublicIds =
+                from membership in _ctx.TeamMembers
+                where membership.UserId == user.PublicId
+                select membership.TeamId;
+
+            var resolvedTeamPublicIds = teamPublicIds
                 .Distinct()
                 .ToList();
 
-            if (!teamIds.Any())
+            if (!resolvedTeamPublicIds.Any())
             {
                 return Ok(new
                 {
@@ -62,22 +71,23 @@ namespace Gamesphere.Controllers
 
             var query =
                 from registration in _ctx.Registrations.AsNoTracking()
-                join tournament in _ctx.Tournaments.AsNoTracking() on registration.TournamentId equals tournament.Id
-                join team in _ctx.Teams.AsNoTracking() on registration.TeamId equals team.Id
-                where teamIds.Contains(registration.TeamId)
+                join tournament in _ctx.Tournaments.AsNoTracking() on registration.TournamentId equals tournament.PublicId
+                join team in _ctx.Teams.AsNoTracking() on registration.TeamId equals team.PublicId
+                where resolvedTeamPublicIds.Contains(registration.TeamId)
                 select new
                 {
                     registration.Id,
-                    registration.TournamentId,
+                    tournamentId = tournament.Id,
+                    tournamentPublicId = tournament.PublicId,
                     tournamentName = tournament.Name,
                     tournamentStatus = tournament.Status,
                     tournamentGame = tournament.Game,
                     tournamentRegion = tournament.Region,
                     tournamentVenue = tournament.Venue,
                     tournamentStartDate = tournament.StartDate,
-                    registration.TeamId,
+                    teamId = team.Id,
+                    teamPublicId = team.PublicId,
                     teamName = team.Name,
-                    registrationApproved = registration.Approved,
                 };
 
             query = query.Where(item => item.tournamentStatus == "Open" || item.tournamentStatus == "Live");
@@ -121,16 +131,17 @@ namespace Gamesphere.Controllers
                 .Select(item => new
                 {
                     item.Id,
-                    item.TournamentId,
+                    tournamentId = item.tournamentId,
+                    tournamentPublicId = item.tournamentPublicId,
                     item.tournamentName,
                     item.tournamentStatus,
                     item.tournamentGame,
                     item.tournamentRegion,
                     item.tournamentVenue,
                     item.tournamentStartDate,
-                    item.TeamId,
+                    teamId = item.teamId,
+                    item.teamPublicId,
                     item.teamName,
-                    item.registrationApproved,
                     registrationStatus = item.tournamentStatus == "Open" ? "Registered" : item.tournamentStatus,
                 })
                 .ToList();

@@ -5,12 +5,11 @@ namespace Gamesphere.Models
     public class Registration
     {
         public int Id { get; set; }
-        public int TournamentId { get; set; }
+        public string TournamentId { get; set; } = null!;
         [JsonIgnore]
         public Tournament? Tournament { get; set; }
-        public int TeamId { get; set; }
+        public string TeamId { get; set; } = null!;
         [JsonIgnore]
         public Team? Team { get; set; }
-        public bool Approved { get; set; }
     }
 }

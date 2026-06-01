@@ -53,6 +53,9 @@ namespace Gamesphere.Controllers
             var teamName = user.TeamId.HasValue
                 ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.Name).FirstOrDefault()
                 : null;
+            var teamPublicId = user.TeamId.HasValue
+                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.PublicId).FirstOrDefault()
+                : null;
 
             return Ok(new
             {
@@ -60,9 +63,11 @@ namespace Gamesphere.Controllers
                 user = new
                 {
                     user.Id,
+                    user.PublicId,
                     user.Username,
                     user.Email,
                     user.TeamId,
+                    teamPublicId,
                     teamName,
                     isAdmin = user.IsAdmin
                 }

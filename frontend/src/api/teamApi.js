@@ -41,7 +41,6 @@ function normalizeTournament(item, index) {
     description: item.description ?? '',
     status: normalizedStatus,
     startDate: item.startDate ?? null,
-    approved: Boolean(item.approved),
   };
 }
 
@@ -89,6 +88,7 @@ function normalizeTeamSummary(item, index) {
 
   return {
     id: item.id ?? index,
+    publicId: item.publicId ?? item.teamPublicId ?? '',
     name: item.name ?? '-',
     logoUrl: item.logoUrl ?? '',
     description: item.description ?? '',
@@ -129,6 +129,7 @@ export async function getTeamRoster(user, teamId = null) {
     const members = Array.isArray(data?.members) ? data.members.map(normalizeMember).filter(Boolean) : [];
     return {
       teamId: data?.teamId ?? null,
+      teamPublicId: data?.teamPublicId ?? '',
       teamName: data?.teamName ?? data?.name ?? data?.team ?? '',
       teamLogoUrl: data?.teamLogoUrl ?? '',
       teamDescription: data?.teamDescription ?? '',
@@ -142,6 +143,7 @@ export async function getTeamRoster(user, teamId = null) {
   } catch {
     return {
       teamId: null,
+      teamPublicId: '',
       teamName: '',
       teamLogoUrl: '',
       teamDescription: '',

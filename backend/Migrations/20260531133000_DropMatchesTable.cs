@@ -12,8 +12,7 @@ namespace Gamesphere.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Matches");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Matches\";");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)

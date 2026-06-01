@@ -69,7 +69,7 @@ namespace Gamesphere.Repositories
             if (cascade)
             {
                 // Remove registrations linked to this tournament
-                var regs = _ctx.Registrations.Where(r => r.TournamentId == id).ToList();
+                var regs = _ctx.Registrations.Where(r => r.TournamentId == existing.PublicId).ToList();
                 if (regs.Any()) _ctx.Registrations.RemoveRange(regs);
             }
 

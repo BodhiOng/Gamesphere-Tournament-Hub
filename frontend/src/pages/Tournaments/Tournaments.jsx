@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner';
 import { useTournament } from '../../context/TournamentContext';
@@ -6,10 +6,26 @@ import { useTournament } from '../../context/TournamentContext';
 function Tournaments() {
   const { tournaments, isLoading } = useTournament();
   const navigate = useNavigate();
+  const TOURNAMENTS_PAGE_SIZE = 10;
   const [filters, setFilters] = useState({ search: '', game: 'all', region: 'all', status: 'all' });
+  const [page, setPage] = useState(1);
   const [selectedTournament, setSelectedTournament] = useState(null);
+  const [failedListImageIds, setFailedListImageIds] = useState(new Set());
+  const [selectedImageLoadFailed, setSelectedImageLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setSelectedImageLoadFailed(false);
+  }, [selectedTournament?.id, selectedTournament?.image]);
 
   const isApplyOpen = (status) => String(status || '').trim().toLowerCase() === 'open';
+  const getStatusClass = (status) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'completed') return 'status-completed';
+    if (normalized === 'live') return 'status-live';
+    if (normalized === 'open') return 'status-open';
+    if (normalized === 'upcoming') return 'status-upcoming';
+    return 'status-unknown';
+  };
 
   const truncatePreview = (value, maxLength = 220) => {
     const text = (value || '').trim();
@@ -80,7 +96,19 @@ function Tournaments() {
     });
   }, [tournaments, filters]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / TOURNAMENTS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * TOURNAMENTS_PAGE_SIZE;
+  const pagedTournaments = filtered.slice(pageStart, pageStart + TOURNAMENTS_PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const onFilterChange = (event) => {
+    setPage(1);
     setFilters((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
@@ -120,13 +148,26 @@ function Tournaments() {
       <div className="tournament-list-single">
         {filtered.length === 0 ? <p>No tournaments found for your current filters.</p> : null}
 
-        {filtered.map((item) => (
+        {pagedTournaments.map((item) => (
           <div key={item.id} className="surface-card tournament-list-item">
-            <span className="status-pill tournament-card-status">{item.status || 'Unknown'}</span>
+            <span className={`status-pill tournament-card-status ${getStatusClass(item.status)}`}>{item.status || 'Unknown'}</span>
 
             <div className="tournament-list-media">
-              {item.image ? (
-                <img src={item.image} alt={item.name || 'Tournament'} className="tournament-list-image" />
+              {item.image && !failedListImageIds.has(item.id) ? (
+                <img
+                  src={item.image}
+                  alt={item.name || 'Tournament'}
+                  className="tournament-list-image"
+                  onError={() => {
+                    setFailedListImageIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(item.id);
+                      return next;
+                    });
+                  }}
+                />
+              ) : item.image ? (
+                <div className="tournament-list-image-placeholder failed">?</div>
               ) : (
                 <div className="tournament-list-image-placeholder">No image</div>
               )}
@@ -157,10 +198,40 @@ function Tournaments() {
             </div>
           </div>
         ))}
+
+        {filtered.length > 0 ? (
+          <div className="admin-pagination-row">
+            <p className="admin-pagination-summary">
+              Showing {pageStart + 1}-{Math.min(pageStart + TOURNAMENTS_PAGE_SIZE, filtered.length)} of {filtered.length}
+            </p>
+            <div className="admin-pagination-controls">
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={safePage <= 1}
+              >
+                Previous
+              </button>
+              <span>Page {safePage} / {totalPages}</span>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={safePage >= totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {selectedTournament ? (
-        <div className="tournament-modal-backdrop" role="presentation" onClick={() => setSelectedTournament(null)}>
+        <div className="tournament-modal-backdrop" role="presentation" onClick={() => {
+          setSelectedTournament(null);
+          setSelectedImageLoadFailed(false);
+        }}>
           <article
             className="surface-card tournament-modal"
             role="dialog"
@@ -171,13 +242,23 @@ function Tournaments() {
             <div className="card-header tournament-modal-head">
               <h3 className="tournament-modal-title">{selectedTournament.name || 'Untitled Tournament'}</h3>
               <span className="tournament-modal-public-id">{selectedTournament.publicId || '-'}</span>
-              <button type="button" className="ghost-btn" onClick={() => setSelectedTournament(null)}>Close</button>
+              <button type="button" className="ghost-btn" onClick={() => {
+                setSelectedTournament(null);
+                setSelectedImageLoadFailed(false);
+              }}>Close</button>
             </div>
 
             <div className="tournament-modal-layout">
               <article className="tournament-modal-image-panel">
-                {selectedTournament.image ? (
-                  <img src={selectedTournament.image} alt={selectedTournament.name || 'Tournament'} className="tournament-modal-image" />
+                {selectedTournament.image && !selectedImageLoadFailed ? (
+                  <img
+                    src={selectedTournament.image}
+                    alt={selectedTournament.name || 'Tournament'}
+                    className="tournament-modal-image"
+                    onError={() => setSelectedImageLoadFailed(true)}
+                  />
+                ) : selectedTournament.image ? (
+                  <div className="tournament-modal-image-placeholder failed">?</div>
                 ) : (
                   <div className="tournament-modal-image-placeholder">No image provided</div>
                 )}

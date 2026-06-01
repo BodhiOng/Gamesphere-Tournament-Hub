@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Gamesphere.Data;
 using Gamesphere.Models;
+using Gamesphere.Utilities;
 using Microsoft.AspNetCore.Identity;
 using System;
 using System.Linq;
@@ -71,7 +72,8 @@ namespace Gamesphere.Controllers
             {
                 Username = request.Username,
                 Email = request.Email,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                PublicId = GenerateUniqueUserPublicId()
             };
             user.PasswordHash = request.PasswordHash;
 
@@ -82,7 +84,19 @@ namespace Gamesphere.Controllers
             request.ReviewedAt = DateTime.UtcNow;
             _ctx.SaveChanges();
 
-            return Ok(new { message = "Account request approved.", userId = user.Id });
+            return Ok(new { message = "Account request approved.", userId = user.Id, userPublicId = user.PublicId });
+        }
+
+        private string GenerateUniqueUserPublicId()
+        {
+            string publicId;
+            do
+            {
+                publicId = IdGenerator.GenerateUserPublicId();
+            }
+            while (_ctx.Users.Any(item => item.PublicId == publicId));
+
+            return publicId;
         }
 
         [HttpPost("account-requests/{id}/reject")]

@@ -3,6 +3,7 @@ using Gamesphere.Services;
 using Gamesphere.Data;
 using Gamesphere.DTOs;
 using Gamesphere.Models;
+using Gamesphere.Utilities;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Collections.Generic;
@@ -35,9 +36,10 @@ namespace Gamesphere.Controllers
             }
 
             var userEmail = dto.Email?.Trim();
-            if (!dto.UserId.HasValue && string.IsNullOrWhiteSpace(userEmail))
+            var userPublicId = dto.UserPublicId?.Trim();
+            if (!dto.UserId.HasValue && string.IsNullOrWhiteSpace(userPublicId) && string.IsNullOrWhiteSpace(userEmail))
             {
-                return BadRequest("A user id or email is required.");
+                return BadRequest("A user id, user public id, or email is required.");
             }
 
             var normalizedName = NormalizeTeamName(name);
@@ -52,7 +54,9 @@ namespace Gamesphere.Controllers
 
             var user = dto.UserId.HasValue
                 ? _ctx.Users.FirstOrDefault(item => item.Id == dto.UserId.Value)
-                : _ctx.Users.FirstOrDefault(item => item.Email == userEmail);
+                : !string.IsNullOrWhiteSpace(userPublicId)
+                    ? _ctx.Users.FirstOrDefault(item => item.PublicId == userPublicId)
+                    : _ctx.Users.FirstOrDefault(item => item.Email == userEmail);
 
             if (user == null)
             {
@@ -61,8 +65,9 @@ namespace Gamesphere.Controllers
 
             var team = new Team
             {
+                PublicId = GenerateUniqueTeamPublicId(),
                 Name = name,
-                CaptainUserId = user.Id,
+                CaptainUserId = user.PublicId,
                 LogoUrl = NormalizeOptionalText(dto.LogoUrl),
                 Description = NormalizeOptionalText(dto.Description),
                 PreferredGames = NormalizePreferredGames(dto.PreferredGames),
@@ -71,13 +76,13 @@ namespace Gamesphere.Controllers
             _ctx.Teams.Add(team);
             _ctx.SaveChanges();
 
-            var membershipExists = _ctx.TeamMembers.Any(item => item.TeamId == team.Id && item.UserId == user.Id);
+            var membershipExists = _ctx.TeamMembers.Any(item => item.TeamId == team.PublicId && item.UserId == user.PublicId);
             if (!membershipExists)
             {
                 _ctx.TeamMembers.Add(new TeamMember
                 {
-                    TeamId = team.Id,
-                    UserId = user.Id,
+                    TeamId = team.PublicId,
+                    UserId = user.PublicId,
                     JoinedAt = System.DateTime.UtcNow
                 });
             }
@@ -92,32 +97,35 @@ namespace Gamesphere.Controllers
             return Ok(new
             {
                 team.Id,
+                team.PublicId,
                 team.Name,
                 team.LogoUrl,
                 team.Description,
                 preferredGames = SplitPreferredGames(team.PreferredGames),
                 team.MemberLimit,
-                team.CaptainUserId,
-                userId = user.Id
+                captainUserId = user.Id,
+                captainUserPublicId = team.CaptainUserId,
+                userId = user.Id,
+                userPublicId = user.PublicId
             });
         }
 
         [HttpPost("profile")]
         public IActionResult UpdateTeamProfile([FromBody] UpdateTeamProfileDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, dto.TeamId);
+            var team = ResolveActorTeam(actor, dto.TeamId, dto.TeamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the captain can edit the team profile.");
             }
@@ -131,6 +139,7 @@ namespace Gamesphere.Controllers
             return Ok(new
             {
                 team.Id,
+                team.PublicId,
                 team.Name,
                 team.LogoUrl,
                 team.Description,
@@ -142,19 +151,19 @@ namespace Gamesphere.Controllers
         [HttpPost("members")]
         public IActionResult AddMember([FromBody] AddTeamMemberDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, dto.TeamId);
+            var team = ResolveActorTeam(actor, dto.TeamId, dto.TeamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the team captain can add members.");
             }
@@ -171,13 +180,13 @@ namespace Gamesphere.Controllers
                 return NotFound("Target user not found.");
             }
 
-            var existingMembership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.Id && item.UserId == member.Id);
+            var existingMembership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.PublicId && item.UserId == member.PublicId);
             if (existingMembership != null)
             {
                 return Conflict("That user is already on your team.");
             }
 
-            var currentMemberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.Id);
+            var currentMemberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.PublicId);
             if (team.MemberLimit.HasValue && currentMemberCount >= team.MemberLimit.Value)
             {
                 return Conflict("Team member limit reached.");
@@ -185,8 +194,8 @@ namespace Gamesphere.Controllers
 
             _ctx.TeamMembers.Add(new TeamMember
             {
-                TeamId = team.Id,
-                UserId = member.Id,
+                TeamId = team.PublicId,
+                UserId = member.PublicId,
                 JoinedAt = System.DateTime.UtcNow
             });
 
@@ -203,19 +212,19 @@ namespace Gamesphere.Controllers
         [HttpPost("members/remove")]
         public IActionResult RemoveMember([FromBody] RemoveTeamMemberDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, dto.TeamId);
+            var team = ResolveActorTeam(actor, dto.TeamId, dto.TeamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the team captain can remove members.");
             }
@@ -232,13 +241,13 @@ namespace Gamesphere.Controllers
                 return NotFound("Target user not found.");
             }
 
-            var membership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.Id && item.UserId == member.Id);
+            var membership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.PublicId && item.UserId == member.PublicId);
             if (membership == null)
             {
                 return NotFound("That user is not on your team.");
             }
 
-            if (member.Id == team.CaptainUserId)
+            if (string.Equals(member.PublicId, team.CaptainUserId, System.StringComparison.Ordinal))
             {
                 return Conflict("You cannot remove the captain. Assign another captain first.");
             }
@@ -247,7 +256,7 @@ namespace Gamesphere.Controllers
 
             if (member.TeamId == team.Id)
             {
-                member.TeamId = ResolveFallbackTeamId(member.Id, team.Id);
+                member.TeamId = ResolveFallbackTeamId(member.PublicId, team.PublicId);
             }
 
             _ctx.SaveChanges();
@@ -258,19 +267,19 @@ namespace Gamesphere.Controllers
         [HttpPost("captain")]
         public IActionResult AssignCaptain([FromBody] AssignCaptainDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, dto.TeamId);
+            var team = ResolveActorTeam(actor, dto.TeamId, dto.TeamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the current captain can assign a new captain.");
             }
@@ -287,13 +296,13 @@ namespace Gamesphere.Controllers
                 return NotFound("Target user not found.");
             }
 
-            var membership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.Id && item.UserId == member.Id);
+            var membership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.PublicId && item.UserId == member.PublicId);
             if (membership == null)
             {
                 return NotFound("That user is not on your team.");
             }
 
-            team.CaptainUserId = member.Id;
+            team.CaptainUserId = member.PublicId;
             _ctx.SaveChanges();
 
             return Ok(new { message = $"{member.Username} is now captain." });
@@ -302,25 +311,25 @@ namespace Gamesphere.Controllers
         [HttpPost("leave")]
         public IActionResult LeaveTeam([FromBody] LeaveTeamDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, dto.TeamId);
+            var team = ResolveActorTeam(actor, dto.TeamId, dto.TeamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            var membership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.Id && item.UserId == actor.Id);
+            var membership = _ctx.TeamMembers.FirstOrDefault(item => item.TeamId == team.PublicId && item.UserId == actor.PublicId);
             if (membership == null)
             {
                 return Conflict("You are not assigned to this team.");
             }
 
-            if (team.CaptainUserId == actor.Id)
+            if (string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return Conflict("You are the captain. Assign another member as captain before leaving the team.");
             }
@@ -329,7 +338,7 @@ namespace Gamesphere.Controllers
 
             if (actor.TeamId == team.Id)
             {
-                actor.TeamId = ResolveFallbackTeamId(actor.Id, team.Id);
+                actor.TeamId = ResolveFallbackTeamId(actor.PublicId, team.PublicId);
             }
 
             _ctx.SaveChanges();
@@ -352,7 +361,7 @@ namespace Gamesphere.Controllers
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the captain can rename the team.");
             }
@@ -380,40 +389,42 @@ namespace Gamesphere.Controllers
             return Ok(new
             {
                 team.Id,
+                team.PublicId,
                 name = team.Name,
-                team.CaptainUserId
+                captainUserId = _ctx.Users.AsNoTracking().Where(item => item.PublicId == team.CaptainUserId).Select(item => (int?)item.Id).FirstOrDefault(),
+                captainUserPublicId = team.CaptainUserId
             });
         }
 
         [HttpPost("delete")]
         public IActionResult DeleteTeam([FromBody] DeleteTeamDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, dto.TeamId);
+            var team = ResolveActorTeam(actor, dto.TeamId, dto.TeamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the captain can delete the team.");
             }
 
-            var memberships = _ctx.TeamMembers.Where(item => item.TeamId == team.Id).ToList();
+            var memberships = _ctx.TeamMembers.Where(item => item.TeamId == team.PublicId).ToList();
             var affectedUserIds = memberships.Select(item => item.UserId).Distinct().ToList();
 
             foreach (var userId in affectedUserIds)
             {
-                var member = _ctx.Users.FirstOrDefault(item => item.Id == userId);
+                var member = _ctx.Users.FirstOrDefault(item => item.PublicId == userId);
                 if (member != null && member.TeamId == team.Id)
                 {
-                    member.TeamId = ResolveFallbackTeamId(member.Id, team.Id);
+                    member.TeamId = ResolveFallbackTeamId(member.PublicId, team.PublicId);
                 }
             }
 
@@ -435,16 +446,16 @@ namespace Gamesphere.Controllers
         }
 
         [HttpGet("discover")]
-        public IActionResult DiscoverTeams([FromQuery] int? userId, [FromQuery] string? email)
+        public IActionResult DiscoverTeams([FromQuery] int? userId, [FromQuery] string? userPublicId, [FromQuery] string? email)
         {
-            var actor = ResolveActor(userId, email);
+            var actor = ResolveActor(userId, email, userPublicId);
             if (actor == null)
             {
                 return NotFound("User not found.");
             }
 
-            var actorTeamIds = _ctx.TeamMembers.AsNoTracking()
-                .Where(item => item.UserId == actor.Id)
+            var actorTeamPublicIds = _ctx.TeamMembers.AsNoTracking()
+                .Where(item => item.UserId == actor.PublicId)
                 .Select(item => item.TeamId)
                 .Distinct()
                 .ToList();
@@ -460,17 +471,19 @@ namespace Gamesphere.Controllers
                 .Select(team => new
                 {
                     id = team.Id,
+                    publicId = team.PublicId,
                     name = team.Name,
                     logoUrl = team.LogoUrl,
                     description = team.Description,
                     preferredGames = team.PreferredGames,
                     memberLimit = team.MemberLimit,
-                    memberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.Id)
+                    memberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.PublicId)
                 })
                 .ToList()
                 .Select(team => new
                 {
                     team.id,
+                    team.publicId,
                     team.name,
                     team.logoUrl,
                     team.description,
@@ -481,7 +494,7 @@ namespace Gamesphere.Controllers
                     enlistedTournaments = BuildTeamTournamentSummaries(team.id),
                     members = BuildTeamMemberSummaries(team.id),
                     rosterMembers = BuildTeamMemberSummaries(team.id),
-                    isMember = actorTeamIds.Contains(team.id),
+                    isMember = actorTeamPublicIds.Contains(team.publicId),
                     hasPendingRequest = pendingTeamIds.Contains(team.id)
                 })
                 .ToList();
@@ -496,7 +509,7 @@ namespace Gamesphere.Controllers
         [HttpPost("join/request")]
         public IActionResult RequestJoin([FromBody] RequestTeamJoinDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
@@ -506,6 +519,11 @@ namespace Gamesphere.Controllers
             if (dto.TeamId.HasValue)
             {
                 team = _ctx.Teams.FirstOrDefault(item => item.Id == dto.TeamId.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.TeamPublicId))
+            {
+                var teamPublicId = dto.TeamPublicId.Trim();
+                team = _ctx.Teams.FirstOrDefault(item => item.PublicId == teamPublicId);
             }
             else
             {
@@ -523,13 +541,13 @@ namespace Gamesphere.Controllers
                 return NotFound("Team not found.");
             }
 
-            var alreadyMemberOfTeam = _ctx.TeamMembers.Any(item => item.TeamId == team.Id && item.UserId == actor.Id);
+            var alreadyMemberOfTeam = _ctx.TeamMembers.Any(item => item.TeamId == team.PublicId && item.UserId == actor.PublicId);
             if (alreadyMemberOfTeam)
             {
                 return Conflict("You are already a member of this team.");
             }
 
-            var currentMemberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.Id);
+            var currentMemberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.PublicId);
             if (team.MemberLimit.HasValue && currentMemberCount >= team.MemberLimit.Value)
             {
                 return Conflict("This team has reached its member limit.");
@@ -556,6 +574,7 @@ namespace Gamesphere.Controllers
             {
                 message = "Your request will be reviewed by the team captain.",
                 teamId = team.Id,
+                teamPublicId = team.PublicId,
                 teamName = team.Name
             });
         }
@@ -563,18 +582,28 @@ namespace Gamesphere.Controllers
         [HttpPost("join/cancel")]
         public IActionResult CancelJoinRequest([FromBody] CancelTeamJoinRequestDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            if (!dto.TeamId.HasValue)
+            if (!dto.TeamId.HasValue && string.IsNullOrWhiteSpace(dto.TeamPublicId))
             {
-                return BadRequest("Team id is required.");
+                return BadRequest("Team id or team public id is required.");
             }
 
-            var team = _ctx.Teams.FirstOrDefault(item => item.Id == dto.TeamId.Value);
+            Team? team = null;
+            if (dto.TeamId.HasValue)
+            {
+                team = _ctx.Teams.FirstOrDefault(item => item.Id == dto.TeamId.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.TeamPublicId))
+            {
+                var teamPublicId = dto.TeamPublicId.Trim();
+                team = _ctx.Teams.FirstOrDefault(item => item.PublicId == teamPublicId);
+            }
+
             if (team == null)
             {
                 return NotFound("Team not found.");
@@ -597,26 +626,27 @@ namespace Gamesphere.Controllers
             {
                 message = "Your join request has been canceled.",
                 teamId = team.Id,
+                teamPublicId = team.PublicId,
                 teamName = team.Name
             });
         }
 
         [HttpGet("requests")]
-        public IActionResult GetJoinRequests([FromQuery] int? userId, [FromQuery] string? email, [FromQuery] int? teamId)
+        public IActionResult GetJoinRequests([FromQuery] int? userId, [FromQuery] string? userPublicId, [FromQuery] string? email, [FromQuery] int? teamId, [FromQuery] string? teamPublicId)
         {
-            var actor = ResolveActor(userId, email);
+            var actor = ResolveActor(userId, email, userPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
             }
 
-            var team = ResolveActorTeam(actor, teamId);
+            var team = ResolveActorTeam(actor, teamId, teamPublicId);
             if (team == null)
             {
                 return NotFound("Team not found.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only captains can review join requests.");
             }
@@ -631,7 +661,9 @@ namespace Gamesphere.Controllers
                     {
                         request.Id,
                         request.TeamId,
+                        teamPublicId = team.PublicId,
                         request.RequesterUserId,
+                        requesterUserPublicId = user.PublicId,
                         requesterUsername = user.Username,
                         requesterEmail = user.Email,
                         request.Message,
@@ -658,15 +690,20 @@ namespace Gamesphere.Controllers
         }
 
         [HttpGet("roster")]
-        public IActionResult GetRoster([FromQuery] int? userId, [FromQuery] string? email, [FromQuery] int? teamId)
+        public IActionResult GetRoster([FromQuery] int? userId, [FromQuery] string? userPublicId, [FromQuery] string? email, [FromQuery] int? teamId, [FromQuery] string? teamPublicId)
         {
-            if (!userId.HasValue && string.IsNullOrWhiteSpace(email))
+            if (!userId.HasValue && string.IsNullOrWhiteSpace(userPublicId) && string.IsNullOrWhiteSpace(email))
             {
-                return BadRequest("A user id or email is required.");
+                return BadRequest("A user id, user public id, or email is required.");
             }
 
             var normalizedEmail = email?.Trim();
-            var user = _ctx.Users.FirstOrDefault(item => userId.HasValue ? item.Id == userId.Value : item.Email == normalizedEmail);
+            var normalizedUserPublicId = userPublicId?.Trim();
+            var user = userId.HasValue
+                ? _ctx.Users.FirstOrDefault(item => item.Id == userId.Value)
+                : !string.IsNullOrWhiteSpace(normalizedUserPublicId)
+                    ? _ctx.Users.FirstOrDefault(item => item.PublicId == normalizedUserPublicId)
+                    : _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
             if (user == null)
             {
                 return NotFound("User not found.");
@@ -675,22 +712,38 @@ namespace Gamesphere.Controllers
             EnsureLegacyMembership(user);
 
             var userTeamIds = _ctx.TeamMembers.AsNoTracking()
-                .Where(item => item.UserId == user.Id)
-                .OrderBy(item => item.Id)
-                .Select(item => item.TeamId)
+                .Where(item => item.UserId == user.PublicId)
+                .Join(
+                    _ctx.Teams.AsNoTracking(),
+                    membership => membership.TeamId,
+                    team => team.PublicId,
+                    (membership, team) => new { membershipId = membership.Id, teamId = team.Id }
+                )
+                .OrderBy(item => item.membershipId)
+                .Select(item => item.teamId)
                 .Distinct()
                 .ToList();
 
-            if (teamId.HasValue)
+            int? selectedTeamId = teamId;
+            if (!selectedTeamId.HasValue && !string.IsNullOrWhiteSpace(teamPublicId))
             {
-                var isMember = userTeamIds.Contains(teamId.Value);
+                var normalizedTeamPublicId = teamPublicId.Trim();
+                selectedTeamId = _ctx.Teams.AsNoTracking()
+                    .Where(item => item.PublicId == normalizedTeamPublicId)
+                    .Select(item => (int?)item.Id)
+                    .FirstOrDefault();
+            }
+
+            if (selectedTeamId.HasValue)
+            {
+                var isMember = userTeamIds.Contains(selectedTeamId.Value);
                 if (!isMember)
                 {
                     return StatusCode(403, "You are not a member of this team.");
                 }
             }
 
-            var activeTeamId = teamId
+            var activeTeamId = selectedTeamId
                 ?? user.TeamId
                 ?? userTeamIds.FirstOrDefault();
 
@@ -699,6 +752,7 @@ namespace Gamesphere.Controllers
                 return Ok(new
                 {
                     teamId = (int?)null,
+                    teamPublicId = (string?)null,
                     teamName = (string?)null,
                     captainUserId = (int?)null,
                     members = new object[0],
@@ -712,6 +766,7 @@ namespace Gamesphere.Controllers
                 return Ok(new
                 {
                     teamId = (int?)null,
+                    teamPublicId = (string?)null,
                     teamName = (string?)null,
                     captainUserId = (int?)null,
                     members = new object[0],
@@ -720,29 +775,31 @@ namespace Gamesphere.Controllers
             }
 
             var memberUsers = _ctx.TeamMembers.AsNoTracking()
-                .Where(item => item.TeamId == team.Id)
+                .Where(item => item.TeamId == team.PublicId)
                 .Join(
                     _ctx.Users.AsNoTracking(),
                     tm => tm.UserId,
-                    u => u.Id,
+                    u => u.PublicId,
                     (tm, u) => u
                 )
                 .OrderBy(item => item.Username)
                 .Select(item => new
                 {
                     item.Id,
+                    item.PublicId,
                     username = item.Username,
                     gamerTag = item.Username,
-                    role = item.Id == team.CaptainUserId ? "Captain" : "Member",
+                    role = item.PublicId == team.CaptainUserId ? "Captain" : "Member",
                     status = "Active"
                 })
                 .ToList();
 
-            var memberCount = _ctx.TeamMembers.AsNoTracking().Count(item => item.TeamId == team.Id);
+            var memberCount = _ctx.TeamMembers.AsNoTracking().Count(item => item.TeamId == team.PublicId);
 
             return Ok(new
             {
                 teamId = team.Id,
+                teamPublicId = team.PublicId,
                 teamName = team.Name,
                 teamLogoUrl = team.LogoUrl,
                 teamDescription = team.Description,
@@ -750,22 +807,28 @@ namespace Gamesphere.Controllers
                 team.MemberLimit,
                 memberCount,
                 enlistedTournaments = BuildTeamTournamentSummaries(team.Id),
-                captainUserId = team.CaptainUserId,
+                captainUserId = _ctx.Users.AsNoTracking().Where(item => item.PublicId == team.CaptainUserId).Select(item => (int?)item.Id).FirstOrDefault(),
+                captainUserPublicId = team.CaptainUserId,
                 members = memberUsers,
                 teamIds = userTeamIds
             });
         }
 
         [HttpGet("mine")]
-        public IActionResult GetMyTeams([FromQuery] int? userId, [FromQuery] string? email)
+        public IActionResult GetMyTeams([FromQuery] int? userId, [FromQuery] string? userPublicId, [FromQuery] string? email)
         {
-            if (!userId.HasValue && string.IsNullOrWhiteSpace(email))
+            if (!userId.HasValue && string.IsNullOrWhiteSpace(userPublicId) && string.IsNullOrWhiteSpace(email))
             {
-                return BadRequest("A user id or email is required.");
+                return BadRequest("A user id, user public id, or email is required.");
             }
 
             var normalizedEmail = email?.Trim();
-            var user = _ctx.Users.FirstOrDefault(item => userId.HasValue ? item.Id == userId.Value : item.Email == normalizedEmail);
+            var normalizedUserPublicId = userPublicId?.Trim();
+            var user = userId.HasValue
+                ? _ctx.Users.FirstOrDefault(item => item.Id == userId.Value)
+                : !string.IsNullOrWhiteSpace(normalizedUserPublicId)
+                    ? _ctx.Users.FirstOrDefault(item => item.PublicId == normalizedUserPublicId)
+                    : _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
             if (user == null)
             {
                 return NotFound("User not found.");
@@ -774,23 +837,24 @@ namespace Gamesphere.Controllers
             EnsureLegacyMembership(user);
 
             var teams = _ctx.TeamMembers.AsNoTracking()
-                .Where(item => item.UserId == user.Id)
+                .Where(item => item.UserId == user.PublicId)
                 .Join(
                     _ctx.Teams.AsNoTracking(),
                     tm => tm.TeamId,
-                    t => t.Id,
+                    t => t.PublicId,
                     (tm, t) => new
                     {
                         id = t.Id,
+                        publicId = t.PublicId,
                         name = t.Name,
                         logoUrl = t.LogoUrl,
                         description = t.Description,
                         memberLimit = t.MemberLimit,
                         preferredGames = t.PreferredGames,
-                        isCaptain = t.CaptainUserId == user.Id,
+                        isCaptain = t.CaptainUserId == user.PublicId,
                         isActive = user.TeamId.HasValue && user.TeamId.Value == t.Id,
                         joinedAt = tm.JoinedAt,
-                        memberCount = _ctx.TeamMembers.Count(item => item.TeamId == t.Id)
+                        memberCount = _ctx.TeamMembers.Count(item => item.TeamId == t.PublicId)
                     }
                 )
                 .OrderByDescending(item => item.isActive)
@@ -799,6 +863,7 @@ namespace Gamesphere.Controllers
                 .Select(item => new
                 {
                     item.id,
+                    item.publicId,
                     item.name,
                     item.logoUrl,
                     item.description,
@@ -817,7 +882,7 @@ namespace Gamesphere.Controllers
 
         private IActionResult ReviewJoinRequest(ReviewTeamJoinRequestDTO dto, TeamJoinRequestStatus status)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
@@ -835,12 +900,13 @@ namespace Gamesphere.Controllers
                 return NotFound("Team not found.");
             }
 
-            if (dto.TeamId.HasValue && dto.TeamId.Value != team.Id)
+            if ((dto.TeamId.HasValue && dto.TeamId.Value != team.Id)
+                || (!string.IsNullOrWhiteSpace(dto.TeamPublicId) && !string.Equals(dto.TeamPublicId.Trim(), team.PublicId, System.StringComparison.Ordinal)))
             {
                 return BadRequest("Join request does not belong to the selected team.");
             }
 
-            if (team.CaptainUserId != actor.Id)
+            if (!string.Equals(team.CaptainUserId, actor.PublicId, System.StringComparison.Ordinal))
             {
                 return StatusCode(403, "Only the team captain can review this request.");
             }
@@ -851,8 +917,18 @@ namespace Gamesphere.Controllers
 
             if (status == TeamJoinRequestStatus.Approved)
             {
-                var existingMembership = _ctx.TeamMembers.Any(item => item.TeamId == team.Id && item.UserId == request.RequesterUserId);
-                var currentMemberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.Id);
+                var requesterPublicId = _ctx.Users
+                    .Where(item => item.Id == request.RequesterUserId)
+                    .Select(item => item.PublicId)
+                    .FirstOrDefault();
+
+                if (string.IsNullOrWhiteSpace(requesterPublicId))
+                {
+                    return NotFound("Requester user not found.");
+                }
+
+                var existingMembership = _ctx.TeamMembers.Any(item => item.TeamId == team.PublicId && item.UserId == requesterPublicId);
+                var currentMemberCount = _ctx.TeamMembers.Count(item => item.TeamId == team.PublicId);
                 if (!existingMembership && team.MemberLimit.HasValue && currentMemberCount >= team.MemberLimit.Value)
                 {
                     return Conflict("Team member limit reached.");
@@ -862,8 +938,8 @@ namespace Gamesphere.Controllers
                 {
                     _ctx.TeamMembers.Add(new TeamMember
                     {
-                        TeamId = team.Id,
-                        UserId = request.RequesterUserId,
+                        TeamId = team.PublicId,
+                        UserId = requesterPublicId,
                         JoinedAt = System.DateTime.UtcNow
                     });
                 }
@@ -937,12 +1013,22 @@ namespace Gamesphere.Controllers
 
         private List<object> BuildTeamTournamentSummaries(int teamId)
         {
+            var teamPublicId = _ctx.Teams.AsNoTracking()
+                .Where(item => item.Id == teamId)
+                .Select(item => item.PublicId)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(teamPublicId))
+            {
+                return new List<object>();
+            }
+
             return _ctx.Registrations.AsNoTracking()
-                .Where(item => item.TeamId == teamId)
+                .Where(item => item.TeamId == teamPublicId)
                 .Join(
                     _ctx.Tournaments.AsNoTracking(),
                     registration => registration.TournamentId,
-                    tournament => tournament.Id,
+                    tournament => tournament.PublicId,
                     (registration, tournament) => new
                     {
                         id = tournament.Id,
@@ -951,8 +1037,7 @@ namespace Gamesphere.Controllers
                         image = tournament.Image,
                         description = tournament.Description,
                         status = tournament.Status,
-                        startDate = tournament.StartDate,
-                        approved = registration.Approved
+                        startDate = tournament.StartDate
                     }
                 )
                 .OrderBy(item => item.startDate)
@@ -961,22 +1046,33 @@ namespace Gamesphere.Controllers
 
         private List<object> BuildTeamMemberSummaries(int teamId)
         {
-            var captainUserId = _ctx.Teams.AsNoTracking()
+            var teamPublicId = _ctx.Teams.AsNoTracking()
+                .Where(item => item.Id == teamId)
+                .Select(item => item.PublicId)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(teamPublicId))
+            {
+                return new List<object>();
+            }
+
+            var captainUserPublicId = _ctx.Teams.AsNoTracking()
                 .Where(item => item.Id == teamId)
                 .Select(item => item.CaptainUserId)
                 .FirstOrDefault();
 
             return _ctx.TeamMembers.AsNoTracking()
-                .Where(item => item.TeamId == teamId)
+                .Where(item => item.TeamId == teamPublicId)
                 .Join(
                     _ctx.Users.AsNoTracking(),
                     membership => membership.UserId,
-                    user => user.Id,
+                    user => user.PublicId,
                     (membership, user) => new
                     {
                         id = user.Id,
+                        publicId = user.PublicId,
                         username = user.Username,
-                        role = user.Id == captainUserId ? "Captain" : "Member",
+                        role = user.PublicId == captainUserPublicId ? "Captain" : "Member",
                         joinedAt = membership.JoinedAt
                     }
                 )
@@ -984,17 +1080,20 @@ namespace Gamesphere.Controllers
                 .ToList<object>();
         }
 
-        private User? ResolveActor(int? userId, string? email)
+        private User? ResolveActor(int? userId, string? email, string? userPublicId = null)
         {
-            if (!userId.HasValue && string.IsNullOrWhiteSpace(email))
+            if (!userId.HasValue && string.IsNullOrWhiteSpace(userPublicId) && string.IsNullOrWhiteSpace(email))
             {
                 return null;
             }
 
+            var normalizedUserPublicId = userPublicId?.Trim();
             var normalizedEmail = email?.Trim();
             var actor = userId.HasValue
                 ? _ctx.Users.FirstOrDefault(item => item.Id == userId.Value)
-                : _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
+                : !string.IsNullOrWhiteSpace(normalizedUserPublicId)
+                    ? _ctx.Users.FirstOrDefault(item => item.PublicId == normalizedUserPublicId)
+                    : _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
 
             if (actor != null)
             {
@@ -1004,11 +1103,35 @@ namespace Gamesphere.Controllers
             return actor;
         }
 
-        private Team? ResolveActorTeam(User actor, int? requestedTeamId)
+        private Team? ResolveActorTeam(User actor, int? requestedTeamId, string? requestedTeamPublicId = null)
         {
+            if (!string.IsNullOrWhiteSpace(requestedTeamPublicId))
+            {
+                var normalizedTeamPublicId = requestedTeamPublicId.Trim();
+                var requestedTeam = _ctx.Teams.FirstOrDefault(item => item.PublicId == normalizedTeamPublicId);
+                if (requestedTeam == null)
+                {
+                    return null;
+                }
+
+                var canAccessRequested = _ctx.TeamMembers.Any(item => item.TeamId == requestedTeam.PublicId && item.UserId == actor.PublicId);
+                if (!canAccessRequested)
+                {
+                    return null;
+                }
+
+                return requestedTeam;
+            }
+
             if (requestedTeamId.HasValue)
             {
-                var canAccessRequested = _ctx.TeamMembers.Any(item => item.TeamId == requestedTeamId.Value && item.UserId == actor.Id);
+                var requestedTeamPublicIdValue = _ctx.Teams
+                    .Where(item => item.Id == requestedTeamId.Value)
+                    .Select(item => item.PublicId)
+                    .FirstOrDefault();
+
+                var canAccessRequested = !string.IsNullOrWhiteSpace(requestedTeamPublicIdValue)
+                    && _ctx.TeamMembers.Any(item => item.TeamId == requestedTeamPublicIdValue && item.UserId == actor.PublicId);
                 if (!canAccessRequested)
                 {
                     return null;
@@ -1018,9 +1141,15 @@ namespace Gamesphere.Controllers
             }
 
             var activeTeamId = actor.TeamId ?? _ctx.TeamMembers
-                .Where(item => item.UserId == actor.Id)
-                .OrderBy(item => item.Id)
-                .Select(item => (int?)item.TeamId)
+                .Where(item => item.UserId == actor.PublicId)
+                .Join(
+                    _ctx.Teams,
+                    membership => membership.TeamId,
+                    team => team.PublicId,
+                    (membership, team) => new { membershipId = membership.Id, teamId = team.Id }
+                )
+                .OrderBy(item => item.membershipId)
+                .Select(item => (int?)item.teamId)
                 .FirstOrDefault();
 
             if (!activeTeamId.HasValue)
@@ -1031,12 +1160,30 @@ namespace Gamesphere.Controllers
             return _ctx.Teams.FirstOrDefault(item => item.Id == activeTeamId.Value);
         }
 
-        private int? ResolveFallbackTeamId(int userId, int removedTeamId)
+        private string GenerateUniqueTeamPublicId()
+        {
+            string publicId;
+            do
+            {
+                publicId = IdGenerator.GenerateTeamPublicId();
+            }
+            while (_ctx.Teams.Any(item => item.PublicId == publicId));
+
+            return publicId;
+        }
+
+        private int? ResolveFallbackTeamId(string userPublicId, string removedTeamPublicId)
         {
             return _ctx.TeamMembers
-                .Where(item => item.UserId == userId && item.TeamId != removedTeamId)
-                .OrderBy(item => item.Id)
-                .Select(item => (int?)item.TeamId)
+                .Where(item => item.UserId == userPublicId && item.TeamId != removedTeamPublicId)
+                .Join(
+                    _ctx.Teams,
+                    membership => membership.TeamId,
+                    team => team.PublicId,
+                    (membership, team) => new { membershipId = membership.Id, teamId = team.Id }
+                )
+                .OrderBy(item => item.membershipId)
+                .Select(item => (int?)item.teamId)
                 .FirstOrDefault();
         }
 
@@ -1047,7 +1194,17 @@ namespace Gamesphere.Controllers
                 return;
             }
 
-            var exists = _ctx.TeamMembers.Any(item => item.TeamId == user.TeamId.Value && item.UserId == user.Id);
+            var teamPublicId = _ctx.Teams
+                .Where(item => item.Id == user.TeamId.Value)
+                .Select(item => item.PublicId)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(teamPublicId))
+            {
+                return;
+            }
+
+            var exists = _ctx.TeamMembers.Any(item => item.TeamId == teamPublicId && item.UserId == user.PublicId);
             if (exists)
             {
                 return;
@@ -1055,8 +1212,8 @@ namespace Gamesphere.Controllers
 
             _ctx.TeamMembers.Add(new TeamMember
             {
-                TeamId = user.TeamId.Value,
-                UserId = user.Id,
+                TeamId = teamPublicId,
+                UserId = user.PublicId,
                 JoinedAt = System.DateTime.UtcNow
             });
 

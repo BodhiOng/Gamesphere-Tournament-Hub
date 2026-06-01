@@ -20,6 +20,18 @@ namespace Gamesphere.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<User>()
+                .HasIndex(item => item.PublicId)
+                .IsUnique();
+
+            modelBuilder.Entity<Team>()
+                .HasIndex(item => item.PublicId)
+                .IsUnique();
+
+            modelBuilder.Entity<Tournament>()
+                .HasIndex(item => item.PublicId)
+                .IsUnique();
+
             modelBuilder.Entity<Registration>()
                 .HasIndex(item => new { item.TeamId, item.TournamentId })
                 .IsUnique();
@@ -28,12 +40,14 @@ namespace Gamesphere.Data
                 .HasOne(item => item.Team)
                 .WithMany(team => team.Registrations)
                 .HasForeignKey(item => item.TeamId)
+                .HasPrincipalKey(team => team.PublicId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Registration>()
                 .HasOne(item => item.Tournament)
                 .WithMany(tournament => tournament.Registrations)
                 .HasForeignKey(item => item.TournamentId)
+                .HasPrincipalKey(tournament => tournament.PublicId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<TeamMember>()
@@ -44,12 +58,14 @@ namespace Gamesphere.Data
                 .HasOne(tm => tm.Team)
                 .WithMany(t => t.TeamMemberships)
                 .HasForeignKey(tm => tm.TeamId)
+                .HasPrincipalKey(t => t.PublicId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<TeamMember>()
                 .HasOne(tm => tm.User)
                 .WithMany(u => u.TeamMemberships)
                 .HasForeignKey(tm => tm.UserId)
+                .HasPrincipalKey(u => u.PublicId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<TeamJoinRequest>()

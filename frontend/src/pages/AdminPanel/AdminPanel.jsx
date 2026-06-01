@@ -3,13 +3,8 @@ import { approveAccountRequest, deleteAccountRequest, getAccountRequests, reject
 import { createTournament, getTournaments, getTournamentById, updateTournament, deleteTournament } from '../../api/tournamentApi';
 import DeleteConfirm from '../../components/DeleteConfirm/DeleteConfirm';
 
-const actions = [
-  'Create tournaments',
-  'Manage users',
-  'Approve teams',
-  'Update match results',
-  'Moderate reports',
-];
+const TOURNAMENTS_PER_PAGE = 10;
+const REQUESTS_PER_PAGE = 10;
 
 function formatDateInputValue(iso) {
   if (!iso) return '';
@@ -51,6 +46,7 @@ function AdminPanel() {
   const [requestSearch, setRequestSearch] = useState('');
   const [requestStatusFilter, setRequestStatusFilter] = useState('all');
   const [requestDeleteTarget, setRequestDeleteTarget] = useState(null);
+  const [requestPage, setRequestPage] = useState(1);
 
   const getRequestStatusLabel = (status) => {
     if (typeof status === 'string') {
@@ -137,6 +133,9 @@ function AdminPanel() {
   const [createError, setCreateError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [tournamentGameFilter, setTournamentGameFilter] = useState('all');
+  const [tournamentStatusFilter, setTournamentStatusFilter] = useState('all');
+  const [tournamentStartDateSort, setTournamentStartDateSort] = useState('desc');
   const [tGame, setTGame] = useState('');
   const [tRegion, setTRegion] = useState('');
   const [tStatus, setTStatus] = useState('');
@@ -195,8 +194,10 @@ function AdminPanel() {
   const [tournaments, setTournaments] = useState([]);
   const [tLoading, setTLoading] = useState(false);
   const [tError, setTError] = useState('');
+  const [tournamentPage, setTournamentPage] = useState(1);
 
   const [selected, setSelected] = useState(null); // for view details
+  const [selectedImageLoadFailed, setSelectedImageLoadFailed] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -208,15 +209,76 @@ function AdminPanel() {
     }
   };
 
+  const tournamentGameOptions = Array.from(
+    new Set(
+      tournaments
+        .map((t) => (t.game || '').trim())
+        .filter((game) => game.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const tournamentStatusOptions = Array.from(
+    new Set(
+      tournaments
+        .map((t) => (t.status || '').trim())
+        .filter((status) => status.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
   const filteredTournaments = tournaments.filter((t) => {
     const q = (searchTerm || '').toString().trim().toLowerCase();
-    if (!q) return true;
-    return String(t.publicId || t.id).toLowerCase().includes(q)
+    const matchesSearch = !q || String(t.publicId || t.id).toLowerCase().includes(q)
       || (t.name || '').toLowerCase().includes(q)
       || (t.description || '').toLowerCase().includes(q)
       || (t.game || '').toLowerCase().includes(q)
       || (t.region || '').toLowerCase().includes(q);
+
+    const normalizedGame = (t.game || '').trim();
+    const normalizedStatus = (t.status || '').trim();
+    const matchesGame = tournamentGameFilter === 'all' || normalizedGame === tournamentGameFilter;
+    const matchesStatus = tournamentStatusFilter === 'all' || normalizedStatus === tournamentStatusFilter;
+
+    return matchesSearch && matchesGame && matchesStatus;
   });
+
+  const sortedTournaments = [...filteredTournaments].sort((a, b) => {
+    const aTime = new Date(a.startDate).getTime();
+    const bTime = new Date(b.startDate).getTime();
+    const aValue = Number.isNaN(aTime) ? 0 : aTime;
+    const bValue = Number.isNaN(bTime) ? 0 : bTime;
+
+    return tournamentStartDateSort === 'asc' ? aValue - bValue : bValue - aValue;
+  });
+
+  const totalTournamentPages = Math.max(1, Math.ceil(sortedTournaments.length / TOURNAMENTS_PER_PAGE));
+  const paginatedTournaments = sortedTournaments.slice(
+    (tournamentPage - 1) * TOURNAMENTS_PER_PAGE,
+    tournamentPage * TOURNAMENTS_PER_PAGE,
+  );
+
+  const filteredRequests = requests.filter((r) => {
+    const statusLabel = getRequestStatusLabel(r.status);
+    if (requestStatusFilter !== 'all' && statusLabel !== requestStatusFilter) {
+      return false;
+    }
+
+    const searchValue = requestSearch.trim().toLowerCase();
+    if (!searchValue) return true;
+
+    const requestId = String(r.publicId || r.id || '').toLowerCase();
+    const username = String(r.username || '').toLowerCase();
+    const email = String(r.email || '').toLowerCase();
+
+    return requestId.includes(searchValue)
+      || username.includes(searchValue)
+      || email.includes(searchValue);
+  });
+
+  const totalRequestPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PER_PAGE));
+  const paginatedRequests = filteredRequests.slice(
+    (requestPage - 1) * REQUESTS_PER_PAGE,
+    requestPage * REQUESTS_PER_PAGE,
+  );
 
   const loadTournaments = async () => {
     setTLoading(true);
@@ -240,13 +302,38 @@ function AdminPanel() {
   }, [active]);
 
   useEffect(() => {
+    setTournamentPage(1);
+  }, [searchTerm, tournamentGameFilter, tournamentStatusFilter, tournamentStartDateSort]);
+
+  useEffect(() => {
+    if (tournamentPage > totalTournamentPages) {
+      setTournamentPage(totalTournamentPages);
+    }
+  }, [tournamentPage, totalTournamentPages]);
+
+  useEffect(() => {
     // when switching to manage-users, refresh requests and reset filters so approved entries are visible
     if (active === 'manage-users') {
       setRequestStatusFilter('all');
       setRequestSearch('');
+      setRequestPage(1);
       refreshRequests();
     }
   }, [active]);
+
+  useEffect(() => {
+    setRequestPage(1);
+  }, [requestSearch, requestStatusFilter]);
+
+  useEffect(() => {
+    if (requestPage > totalRequestPages) {
+      setRequestPage(totalRequestPages);
+    }
+  }, [requestPage, totalRequestPages]);
+
+  useEffect(() => {
+    setSelectedImageLoadFailed(false);
+  }, [selected?.id, selected?.image]);
 
   return (
     <div className="admin-layout">
@@ -256,28 +343,39 @@ function AdminPanel() {
         <div className="admin-quick-nav" role="tablist" aria-label="Admin actions">
           <button type="button" role="tab" aria-pressed={active === 'manage-tournaments'} className={`nav-chip ${active === 'manage-tournaments' ? 'active' : ''}`} onClick={() => setActive('manage-tournaments')}>Manage tournaments</button>
           <button type="button" role="tab" aria-pressed={active === 'manage-users'} className={`nav-chip ${active === 'manage-users' ? 'active' : ''}`} onClick={() => setActive('manage-users')}>Manage account requests</button>
-          <button type="button" role="tab" aria-pressed={active === 'approve-teams'} className={`nav-chip ${active === 'approve-teams' ? 'active' : ''}`} onClick={() => setActive('approve-teams')}>Manage teams</button>
           <button type="button" role="tab" aria-pressed={active === 'update-matches'} className={`nav-chip ${active === 'update-matches' ? 'active' : ''}`} onClick={() => setActive('update-matches')}>Manage match results</button>
           <button type="button" role="tab" aria-pressed={active === 'moderate-reports'} className={`nav-chip ${active === 'moderate-reports' ? 'active' : ''}`} onClick={() => setActive('moderate-reports')}>Manage reports</button>
         </div>
         {active === 'manage-tournaments' && (
           <section id="manage-tournaments" className="surface-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div />
-
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input type="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by tournament ID, name, game, or region" style={{ padding: '0.45rem 0.6rem', minWidth: '260px' }} />
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by tournament ID, name, game, or region" style={{ padding: '0.45rem 0.6rem', flex: '1 1 360px', minWidth: '260px' }} />
+                <select value={tournamentGameFilter} onChange={(e) => setTournamentGameFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem' }}>
+                  <option value="all">All games</option>
+                  {tournamentGameOptions.map((gameOption) => (
+                    <option key={gameOption} value={gameOption}>{gameOption}</option>
+                  ))}
+                </select>
+                <select value={tournamentStatusFilter} onChange={(e) => setTournamentStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem' }}>
+                  <option value="all">All statuses</option>
+                  {tournamentStatusOptions.map((statusOption) => (
+                    <option key={statusOption} value={statusOption}>{statusOption}</option>
+                  ))}
+                </select>
+                <select value={tournamentStartDateSort} onChange={(e) => setTournamentStartDateSort(e.target.value)} style={{ padding: '0.45rem 0.6rem' }}>
+                  <option value="desc">Start date: Newest first</option>
+                  <option value="asc">Start date: Oldest first</option>
+                </select>
                 <button type="button" className="primary-btn" onClick={() => setCreateOpen(true)}>Create Tournament</button>
-              </div>
             </div>
 
             <div style={{ marginTop: '1.25rem' }}>
               <h4 style={{ marginBottom: '0.5rem' }}>Existing tournaments</h4>
               {tLoading && <p>Loading tournaments...</p>}
               {tError && <p className="error-text">{tError}</p>}
-              {!tLoading && filteredTournaments.length === 0 && <p>{searchTerm ? 'No tournaments match your search.' : noTournamentsMessage}</p>}
+              {!tLoading && sortedTournaments.length === 0 && <p>{searchTerm || tournamentGameFilter !== 'all' || tournamentStatusFilter !== 'all' ? 'No tournaments match your filters.' : noTournamentsMessage}</p>}
 
-              {!tLoading && filteredTournaments.length > 0 && (
+              {!tLoading && sortedTournaments.length > 0 && (
                 <div style={{ overflowX: 'auto' }}>
                   <table className="table-shell auth-table">
                     <thead>
@@ -292,7 +390,7 @@ function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTournaments.map((t) => (
+                      {paginatedTournaments.map((t) => (
                         <tr key={t.id}>
                           <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{t.publicId || t.id}</td>
                           <td>{t.name}</td>
@@ -318,6 +416,20 @@ function AdminPanel() {
                       ))}
                     </tbody>
                   </table>
+
+                  <div className="admin-pagination-row">
+                    <p className="admin-pagination-summary">
+                      Showing {sortedTournaments.length === 0 ? 0 : (tournamentPage - 1) * TOURNAMENTS_PER_PAGE + 1}
+                      {' '}-{' '}
+                      {Math.min(tournamentPage * TOURNAMENTS_PER_PAGE, sortedTournaments.length)}
+                      {' '}of {sortedTournaments.length}
+                    </p>
+                    <div className="admin-pagination-controls">
+                      <button type="button" className="ghost-btn" disabled={tournamentPage <= 1} onClick={() => setTournamentPage((p) => Math.max(1, p - 1))}>Previous</button>
+                      <span>Page {tournamentPage} of {totalTournamentPages}</span>
+                      <button type="button" className="ghost-btn" disabled={tournamentPage >= totalTournamentPages} onClick={() => setTournamentPage((p) => Math.min(totalTournamentPages, p + 1))}>Next</button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -445,18 +557,24 @@ function AdminPanel() {
                       <p className="tournament-view-subtitle">{selected.name || 'Untitled Tournament'}</p>
                     </div>
                     <div>
-                      <button className="ghost-btn" onClick={() => setSelected(null)}>Close</button>
+                      <button className="ghost-btn" onClick={() => {
+                        setSelected(null);
+                        setSelectedImageLoadFailed(false);
+                      }}>Close</button>
                     </div>
                   </div>
 
                   <div className="tournament-view-layout">
                     <article className="tournament-view-image-panel">
-                      {selected.image ? (
+                      {selected.image && !selectedImageLoadFailed ? (
                         <img
                           src={selected.image}
                           alt={selected.name || 'Tournament'}
                           className="tournament-view-image"
+                          onError={() => setSelectedImageLoadFailed(true)}
                         />
+                      ) : selected.image ? (
+                        <div className="tournament-view-image-placeholder failed" aria-label="Image failed to load">?</div>
                       ) : (
                         <div className="tournament-view-image-placeholder">No image provided</div>
                       )}
@@ -539,29 +657,11 @@ function AdminPanel() {
             {error && <p className="error-text">{error}</p>}
 
             {(() => {
-              const searchValue = requestSearch.trim().toLowerCase();
-              const visibleRequests = requests.filter((r) => {
-                const statusLabel = getRequestStatusLabel(r.status);
-                if (requestStatusFilter !== 'all' && statusLabel !== requestStatusFilter) {
-                  return false;
-                }
-
-                if (!searchValue) return true;
-
-                const requestId = String(r.publicId || r.id || '').toLowerCase();
-                const username = String(r.username || '').toLowerCase();
-                const email = String(r.email || '').toLowerCase();
-
-                return requestId.includes(searchValue)
-                  || username.includes(searchValue)
-                  || email.includes(searchValue);
-              });
-
-              if (!loading && visibleRequests.length === 0) {
+              if (!loading && filteredRequests.length === 0) {
                 return <p>No account requests match your filters.</p>;
               }
 
-              return !loading && visibleRequests.length > 0 && (
+              return !loading && filteredRequests.length > 0 && (
                 <div style={{ overflowX: 'auto' }}>
                   <table className="table-shell auth-table">
                     <thead>
@@ -575,9 +675,8 @@ function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleRequests.map((req) => {
+                      {paginatedRequests.map((req) => {
                         const statusLabel = getRequestStatusLabel(req.status);
-                        const isPending = statusLabel === 'pending';
                         const requestedAt = req.requestedAt ? new Date(req.requestedAt).toLocaleString() : '-';
                         const requestId = req.publicId || req.id;
                         return (
@@ -605,6 +704,20 @@ function AdminPanel() {
                       })}
                     </tbody>
                   </table>
+
+                  <div className="admin-pagination-row">
+                    <p className="admin-pagination-summary">
+                      Showing {filteredRequests.length === 0 ? 0 : (requestPage - 1) * REQUESTS_PER_PAGE + 1}
+                      {' '}-{' '}
+                      {Math.min(requestPage * REQUESTS_PER_PAGE, filteredRequests.length)}
+                      {' '}of {filteredRequests.length}
+                    </p>
+                    <div className="admin-pagination-controls">
+                      <button type="button" className="ghost-btn" disabled={requestPage <= 1} onClick={() => setRequestPage((p) => Math.max(1, p - 1))}>Previous</button>
+                      <span>Page {requestPage} of {totalRequestPages}</span>
+                      <button type="button" className="ghost-btn" disabled={requestPage >= totalRequestPages} onClick={() => setRequestPage((p) => Math.min(totalRequestPages, p + 1))}>Next</button>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
@@ -623,16 +736,6 @@ function AdminPanel() {
               }}
             />
           </div>
-          </section>
-        )}
-
-        {active === 'approve-teams' && (
-          <section id="approve-teams" className="surface-card">
-            <h3>Approve teams</h3>
-            <p>Approve or reject team registrations and manage team metadata.</p>
-            <div className="cta-row" style={{ marginTop: '1rem' }}>
-              <button type="button" className="primary-btn">Review Team Approvals</button>
-            </div>
           </section>
         )}
 

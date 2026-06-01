@@ -55,6 +55,7 @@ function TeamManagement() {
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [teamInfo, setTeamInfo] = useState({
     teamId: null,
+    teamPublicId: '',
     teamName: '',
     teamLogoUrl: '',
     teamDescription: '',
@@ -71,8 +72,12 @@ function TeamManagement() {
   const [description, setDescription] = useState('');
   const [preferredGamesInput, setPreferredGamesInput] = useState('');
   const [renameValue, setRenameValue] = useState('');
+  const [renameError, setRenameError] = useState('');
   const [memberUsername, setMemberUsername] = useState('');
-  const [memberInputError, setMemberInputError] = useState('');
+  const [memberInputInvalid, setMemberInputInvalid] = useState(false);
+  const [logoUrlError, setLogoUrlError] = useState('');
+  const [descriptionError, setDescriptionError] = useState('');
+  const [preferredGamesError, setPreferredGamesError] = useState('');
   const [createTeamError, setCreateTeamError] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -100,6 +105,11 @@ function TeamManagement() {
   const showMyTeamsPanel = teamsView === 'my';
   const isCaptain = Boolean(user?.id && teamInfo.captainUserId === user.id);
   const activeTeamId = teamInfo.teamId ?? selectedTeamId ?? null;
+  const activeTeamPublicId = useMemo(() => {
+    if (teamInfo.teamPublicId) return teamInfo.teamPublicId;
+    if (activeTeamId == null) return '';
+    return myTeams.find((team) => team.id === activeTeamId)?.publicId || '';
+  }, [teamInfo.teamPublicId, activeTeamId, myTeams]);
   const activeDiscoverTeam = useMemo(() => {
     if (!selectedDiscoverTeam) {
       return null;
@@ -236,6 +246,7 @@ function TeamManagement() {
       setMembers([]);
       setTeamInfo({
         teamId: null,
+        teamPublicId: '',
         teamName: '',
         teamLogoUrl: '',
         teamDescription: '',
@@ -256,6 +267,7 @@ function TeamManagement() {
           setMembers(result.members || []);
           setTeamInfo({
             teamId: result.teamId,
+            teamPublicId: result.teamPublicId || '',
             teamName: result.teamName,
             teamLogoUrl: result.teamLogoUrl || '',
             teamDescription: result.teamDescription || '',
@@ -273,6 +285,7 @@ function TeamManagement() {
           setMembers([]);
           setTeamInfo({
             teamId: null,
+            teamPublicId: '',
             teamName: '',
             teamLogoUrl: '',
             teamDescription: '',
@@ -422,6 +435,7 @@ function TeamManagement() {
     setMembers(roster.members || []);
     setTeamInfo({
       teamId: roster.teamId,
+      teamPublicId: roster.teamPublicId || '',
       teamName: roster.teamName,
       teamLogoUrl: roster.teamLogoUrl || '',
       teamDescription: roster.teamDescription || '',
@@ -489,6 +503,7 @@ function TeamManagement() {
       setMembers(roster.members || []);
       setTeamInfo({
         teamId: roster.teamId,
+        teamPublicId: roster.teamPublicId || (created?.publicId || ''),
         teamName: roster.teamName || resolvedName,
         teamLogoUrl: roster.teamLogoUrl || '',
         teamDescription: roster.teamDescription || '',
@@ -526,21 +541,140 @@ function TeamManagement() {
     }
   };
 
+  const validateRenameValue = (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return 'Team name is required.';
+    }
+
+    if (trimmed.length < 3) {
+      return 'Team name must be at least 3 characters.';
+    }
+
+    if (trimmed.length > 60) {
+      return 'Team name cannot exceed 60 characters.';
+    }
+
+    return '';
+  };
+
+  const validateMemberUsernameValue = (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (trimmed.length < 3) {
+      return 'Username must be at least 3 characters.';
+    }
+
+    if (trimmed.length > 30) {
+      return 'Username cannot exceed 30 characters.';
+    }
+
+    if (!/^[a-zA-Z0-9._-]+$/.test(trimmed)) {
+      return 'Username can only contain letters, numbers, dot, underscore, or dash.';
+    }
+
+    return '';
+  };
+
+  const validateLogoUrlValue = (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return 'Logo URL must start with http:// or https://.';
+      }
+    } catch {
+      return 'Enter a valid logo URL.';
+    }
+
+    if (trimmed.length > 500) {
+      return 'Logo URL cannot exceed 500 characters.';
+    }
+
+    return '';
+  };
+
+  const validateDescriptionValue = (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (trimmed.length > 300) {
+      return 'Description cannot exceed 300 characters.';
+    }
+
+    return '';
+  };
+
+  const validatePreferredGamesValue = (value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (trimmed.length > 250) {
+      return 'Preferred games cannot exceed 250 characters.';
+    }
+
+    const games = trimmed
+      .split(',')
+      .map((game) => game.trim())
+      .filter(Boolean);
+
+    if (games.length > 5) {
+      return 'You can list up to 5 preferred games.';
+    }
+
+    const duplicateSet = new Set();
+    for (const game of games) {
+      const key = game.toLowerCase();
+      if (duplicateSet.has(key)) {
+        return 'Preferred games cannot contain duplicates.';
+      }
+
+      duplicateSet.add(key);
+      if (game.length > 30) {
+        return 'Each game name must be 30 characters or fewer.';
+      }
+    }
+
+    return '';
+  };
+
   const onAddMember = async (event) => {
     event.preventDefault();
     setError('');
     clearNotice();
-    setMemberInputError('');
+    setMemberInputInvalid(false);
     if (!user) return;
+
+    if (!String(memberUsername || '').trim()) {
+      setMemberInputInvalid(true);
+      return;
+    }
+
+    const memberError = validateMemberUsernameValue(memberUsername);
+    if (memberError) {
+      setMemberInputInvalid(true);
+      return;
+    }
 
     setSavingAction('add');
     try {
-      await addTeamMember(user, memberUsername, activeTeamId);
+      await addTeamMember(user, memberUsername.trim(), activeTeamId);
       setMemberUsername('');
-      setMemberInputError('');
+      setMemberInputInvalid(false);
       await refreshRoster(user, activeTeamId);
-    } catch (err) {
-      setMemberInputError(err?.message || 'Failed to add member.');
+    } catch {
+      setMemberInputInvalid(true);
     } finally {
       setSavingAction('');
     }
@@ -617,10 +751,17 @@ function TeamManagement() {
       return;
     }
 
+    const renameValidationError = validateRenameValue(renameValue);
+    if (renameValidationError) {
+      setRenameError(renameValidationError);
+      return;
+    }
+
     setSavingAction('rename');
     try {
-      const renamed = await renameTeam(user, renameValue, activeTeamId);
-      const resolvedName = renamed?.name || renameValue.trim();
+      const trimmedName = renameValue.trim();
+      const renamed = await renameTeam(user, trimmedName, activeTeamId);
+      const resolvedName = renamed?.name || trimmedName;
       if ((user?.teamId ?? null) === activeTeamId) {
         updateUser({
           ...user,
@@ -634,6 +775,7 @@ function TeamManagement() {
         teamName: resolvedName,
       }));
       setRenameValue(resolvedName);
+      setRenameError('');
       const teams = await getMyTeams(user);
       setMyTeams(teams);
       showNotice('Team renamed successfully.');
@@ -660,14 +802,30 @@ function TeamManagement() {
       return;
     }
 
+    const logoValidationError = validateLogoUrlValue(logoUrl);
+    const descriptionValidationError = validateDescriptionValue(description);
+    const preferredGamesValidationError = validatePreferredGamesValue(preferredGamesInput);
+
+    setLogoUrlError(logoValidationError);
+    setDescriptionError(descriptionValidationError);
+    setPreferredGamesError(preferredGamesValidationError);
+
+    if (logoValidationError || descriptionValidationError || preferredGamesValidationError) {
+      setError(logoValidationError || descriptionValidationError || preferredGamesValidationError);
+      return;
+    }
+
     setSavingAction('profile');
     try {
       await updateTeamProfile(user, {
-        logoUrl,
-        description,
+        logoUrl: logoUrl.trim(),
+        description: description.trim(),
         memberLimit: memberLimitInput === '' ? null : Number(memberLimitInput),
-        preferredGames: preferredGamesInput,
+        preferredGames: preferredGamesInput.trim(),
       }, activeTeamId);
+      setLogoUrlError('');
+      setDescriptionError('');
+      setPreferredGamesError('');
       await refreshRoster(user, activeTeamId);
       showNotice('Team profile updated.');
     } catch (err) {
@@ -779,13 +937,29 @@ function TeamManagement() {
 
   const filteredDiscoverTeams = useMemo(() => {
     const query = discoverSearch.trim().toLowerCase();
+    const compactQuery = query.replace(/[^a-z0-9]/g, '');
     if (!query) {
       return discoverFeed;
     }
 
-    return discoverFeed.filter((team) =>
-      String(team.name || '').toLowerCase().includes(query)
-    );
+    return discoverFeed.filter((team) => {
+      const name = String(team.name || '').toLowerCase();
+      const rawPublicId = String(team.publicId || team.teamPublicId || '');
+      const publicId = rawPublicId.toLowerCase();
+      const numericId = String(team.id || '').toLowerCase();
+
+      if (name.includes(query) || publicId.includes(query) || numericId.includes(query)) {
+        return true;
+      }
+
+      if (!compactQuery) {
+        return false;
+      }
+
+      const compactPublicId = publicId.replace(/[^a-z0-9]/g, '');
+      const compactNumericId = numericId.replace(/[^a-z0-9]/g, '');
+      return compactPublicId.includes(compactQuery) || compactNumericId.includes(compactQuery);
+    });
   }, [discoverFeed, discoverSearch]);
 
   const discoverTotalPages = Math.max(1, Math.ceil(filteredDiscoverTeams.length / DISCOVER_PAGE_SIZE));
@@ -794,10 +968,6 @@ function TeamManagement() {
     discoverSafePage * DISCOVER_PAGE_SIZE,
     discoverSafePage * DISCOVER_PAGE_SIZE + DISCOVER_PAGE_SIZE
   );
-  const discoverGridItems = [
-    ...pagedDiscoverTeams,
-    ...Array.from({ length: Math.max(0, DISCOVER_PAGE_SIZE - pagedDiscoverTeams.length) }, () => null),
-  ];
 
   const discoverRosterMembers = useMemo(() => {
     if (!activeDiscoverTeam || !Array.isArray(activeDiscoverTeam.members)) {
@@ -945,17 +1115,13 @@ function TeamManagement() {
                       setDiscoverSearch(event.target.value);
                       setDiscoverPage(0);
                     }}
-                    placeholder="Search teams by name..."
+                    placeholder="Search teams by name or ID..."
                   />
                 </label>
               </div>
 
               <div className="team-discover-grid">
-                {discoverGridItems.map((team, cardIndex) => {
-                  if (!team) {
-                    return <article key={`discover-placeholder-${cardIndex}`} className="team-discover-card is-placeholder" aria-hidden="true" />;
-                  }
-
+                {pagedDiscoverTeams.map((team) => {
                   const preferredGames = Array.isArray(team.preferredGames) ? team.preferredGames : [];
                   const visibleGames = preferredGames.slice(0, DISCOVER_VISIBLE_GAMES);
                   const hasMoreGames = preferredGames.length > DISCOVER_VISIBLE_GAMES;
@@ -1037,16 +1203,19 @@ function TeamManagement() {
             ) : (
               <div className="team-profile-logo-placeholder" aria-label="No team logo">?</div>
             )}
-            <div>
-              <h4>{teamInfo.teamName || 'Team'}</h4>
+            <div className="team-profile-content">
+              <div className="team-profile-title-row">
+                <h4>{teamInfo.teamName || 'Team'}</h4>
+                {activeTeamPublicId ? <span className="team-profile-public-id">ID: {activeTeamPublicId}</span> : null}
+              </div>
               <p className={isCaptain ? 'team-profile-description-scroll' : ''}>{teamInfo.teamDescription || 'No description provided.'}</p>
               <p style={{ marginTop: '0.35rem' }}>
                 <strong>Member limit:</strong> {teamInfo.memberLimit != null ? `${teamInfo.memberCount}/${teamInfo.memberLimit}` : `${teamInfo.memberCount}/No limit`}
               </p>
               {teamInfo.preferredGames.length > 0 ? (
-                <p style={{ marginTop: '0.5rem' }}><strong>Preferred games:</strong> {teamInfo.preferredGames.join(', ')}</p>
+                <p><strong>Preferred games:</strong> {teamInfo.preferredGames.join(', ')}</p>
               ) : (
-                <p style={{ marginTop: '0.5rem' }}><strong>Preferred games:</strong> No preferred games provided.</p>
+                <p><strong>Preferred games:</strong> No preferred games provided.</p>
               )}
             </div>
           </div>
@@ -1078,9 +1247,20 @@ function TeamManagement() {
             <form onSubmit={onRenameTeam} className="team-action-row">
                     <label className="team-inline-field">
                       Team name
-                      <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} placeholder="Enter a team name" />
+                      <input
+                        value={renameValue}
+                        onChange={(e) => {
+                          setRenameValue(e.target.value);
+                          const nextError = validateRenameValue(e.target.value);
+                          setRenameError(nextError);
+                        }}
+                        placeholder="Enter a team name"
+                        className={renameError ? 'team-input-error' : ''}
+                        aria-invalid={Boolean(renameError)}
+                      />
+                      {renameError ? <p className="error-text" style={{ marginTop: '0.35rem' }}>{renameError}</p> : null}
                     </label>
-                    <button type="submit" className="primary-btn" disabled={savingAction === 'rename'}>
+                    <button type="submit" className="primary-btn" disabled={savingAction === 'rename' || Boolean(renameError)}>
                       {savingAction === 'rename' ? 'Saving...' : 'Rename Team'}
                     </button>
             </form>
@@ -1092,16 +1272,14 @@ function TeamManagement() {
                         value={memberUsername}
                         onChange={(e) => {
                           setMemberUsername(e.target.value);
-                          if (memberInputError) {
-                            setMemberInputError('');
-                          }
+                          setMemberInputInvalid(Boolean(validateMemberUsernameValue(e.target.value)));
                         }}
-                        placeholder={memberInputError || 'Enter username'}
-                        className={memberInputError ? 'team-input-error' : ''}
-                        aria-invalid={Boolean(memberInputError)}
+                        placeholder="Enter username"
+                        className={memberInputInvalid ? 'team-input-error' : ''}
+                        aria-invalid={memberInputInvalid}
                       />
                     </label>
-                    <button type="submit" className="primary-btn" disabled={savingAction === 'add'}>
+                    <button type="submit" className="primary-btn" disabled={savingAction === 'add' || memberInputInvalid}>
                       {savingAction === 'add' ? 'Adding...' : 'Add Member'}
                     </button>
             </form>
@@ -1109,11 +1287,31 @@ function TeamManagement() {
             <form onSubmit={onSaveTeamProfile} className="team-profile-form">
                     <label className="team-inline-field">
                       Team logo URL
-                      <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." />
+                      <input
+                        value={logoUrl}
+                        onChange={(e) => {
+                          setLogoUrl(e.target.value);
+                          setLogoUrlError(validateLogoUrlValue(e.target.value));
+                        }}
+                        placeholder="https://..."
+                        className={logoUrlError ? 'team-input-error' : ''}
+                        aria-invalid={Boolean(logoUrlError)}
+                      />
+                      {logoUrlError ? <p className="error-text" style={{ marginTop: '0.35rem' }}>{logoUrlError}</p> : null}
                     </label>
                     <label className="team-inline-field">
                       Team description
-                      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your team" />
+                      <input
+                        value={description}
+                        onChange={(e) => {
+                          setDescription(e.target.value);
+                          setDescriptionError(validateDescriptionValue(e.target.value));
+                        }}
+                        placeholder="Describe your team (300 words max)"
+                        className={descriptionError ? 'team-input-error' : ''}
+                        aria-invalid={Boolean(descriptionError)}
+                      />
+                      {descriptionError ? <p className="error-text" style={{ marginTop: '0.35rem' }}>{descriptionError}</p> : null}
                     </label>
                     <label className="team-inline-field">
                       Member limit (optional)
@@ -1127,17 +1325,38 @@ function TeamManagement() {
                             setMemberLimitError('');
                           }
                         }}
-                        placeholder={memberLimitError || 'No limit'}
+                        placeholder="No limit"
                         className={memberLimitError ? 'team-input-error' : ''}
                         aria-invalid={Boolean(memberLimitError)}
                       />
+                      {memberLimitError ? <p className="error-text" style={{ marginTop: '0.35rem' }}>{memberLimitError}</p> : null}
                     </label>
                     <label className="team-inline-field">
                       Preferred games (comma separated)
-                      <input value={preferredGamesInput} onChange={(e) => setPreferredGamesInput(e.target.value)} placeholder="Valorant, CS2, Apex" />
+                      <input
+                        value={preferredGamesInput}
+                        onChange={(e) => {
+                          setPreferredGamesInput(e.target.value);
+                          setPreferredGamesError(validatePreferredGamesValue(e.target.value));
+                        }}
+                        placeholder="Valorant, CS2, Apex"
+                        className={preferredGamesError ? 'team-input-error' : ''}
+                        aria-invalid={Boolean(preferredGamesError)}
+                      />
+                      {preferredGamesError ? <p className="error-text" style={{ marginTop: '0.35rem' }}>{preferredGamesError}</p> : null}
                     </label>
                     <div className="team-action-row team-action-row-end">
-                      <button type="submit" className="primary-btn" disabled={savingAction === 'profile' || Boolean(memberLimitError)}>
+                      <button
+                        type="submit"
+                        className="primary-btn"
+                        disabled={
+                          savingAction === 'profile'
+                          || Boolean(memberLimitError)
+                          || Boolean(logoUrlError)
+                          || Boolean(descriptionError)
+                          || Boolean(preferredGamesError)
+                        }
+                      >
                         {savingAction === 'profile' ? 'Saving...' : 'Save Team Profile'}
                       </button>
                     </div>
@@ -1317,8 +1536,8 @@ function TeamManagement() {
                       <span className="team-enlisted-cell-desc">
                         {entry.description?.trim() || 'No description available.'}
                       </span>
-                      <span className={`team-enlisted-status ${entry.approved ? 'is-approved' : 'is-pending'}`}>
-                        {entry.approved ? 'Approved' : 'Pending'}
+                      <span className="team-enlisted-status is-enlisted">
+                        Enlisted
                       </span>
                     </button>
                   ))}
@@ -1348,8 +1567,9 @@ function TeamManagement() {
       {activeDiscoverTeam ? (
         <div className="tournament-modal-backdrop" role="presentation" onClick={() => setSelectedDiscoverTeam(null)}>
           <article className="surface-card tournament-modal team-details-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <div className="team-details-modal-head">
+            <div className={`team-details-modal-head ${activeDiscoverTeam.publicId ? 'with-public-id' : ''}`}>
               <h3>{activeDiscoverTeam.name}</h3>
+              {activeDiscoverTeam.publicId ? <span className="team-details-modal-public-id">{activeDiscoverTeam.publicId}</span> : null}
               <button type="button" className="ghost-btn" onClick={() => setSelectedDiscoverTeam(null)}>Close</button>
             </div>
 

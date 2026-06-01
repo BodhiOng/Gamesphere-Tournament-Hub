@@ -44,6 +44,7 @@ function TournamentDetails() {
   const [leaving, setLeaving] = useState(false);
   const [registerError, setRegisterError] = useState('');
   const [registerSuccess, setRegisterSuccess] = useState('');
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,6 +71,10 @@ function TournamentDetails() {
       }
     });
   }, [user]);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [tournament?.id, tournament?.image]);
 
   const registeredTeamIds = useMemo(
     () => new Set(registrations.map((r) => r.teamId)),
@@ -151,7 +156,7 @@ function TournamentDetails() {
   };
 
   return (
-    <section style={{ maxWidth: '1120px', margin: '0 auto' }}>
+    <section style={{ width: '100%', maxWidth: '1120px', margin: '0 auto' }}>
       <article className="surface-card">
         <h2>{tournament.name}</h2>
         <p style={{ fontFamily: 'monospace', marginTop: '0.25rem', color: 'var(--muted)' }}>
@@ -160,10 +165,11 @@ function TournamentDetails() {
 
         <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.85rem' }}>
           <div>
-            {tournament.image ? (
+            {tournament.image && !imageLoadFailed ? (
               <img
                 src={tournament.image}
                 alt={tournament.name || 'Tournament'}
+                onError={() => setImageLoadFailed(true)}
                 style={{
                   width: '100%',
                   maxHeight: '420px',
@@ -171,6 +177,22 @@ function TournamentDetails() {
                   borderRadius: '0.6rem',
                 }}
               />
+            ) : tournament.image ? (
+              <div
+                style={{
+                  minHeight: '240px',
+                  borderRadius: '0.6rem',
+                  border: '1px solid var(--panel-border)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'var(--ink)',
+                  fontSize: '2.8rem',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
+              >
+                ?
+              </div>
             ) : (
               <div
                 style={{

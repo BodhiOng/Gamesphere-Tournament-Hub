@@ -18,19 +18,22 @@ namespace Gamesphere.Controllers
         }
 
         [HttpGet("me")]
-        public IActionResult Me([FromQuery] int? id, [FromQuery] string? email)
+        public IActionResult Me([FromQuery] int? id, [FromQuery] string? publicId, [FromQuery] string? email)
         {
-            if (!id.HasValue && string.IsNullOrWhiteSpace(email))
+            if (!id.HasValue && string.IsNullOrWhiteSpace(publicId) && string.IsNullOrWhiteSpace(email))
             {
-                return BadRequest("A user id or email is required.");
+                return BadRequest("A user id, user public id, or email is required.");
             }
 
             var query = _ctx.Users.AsNoTracking();
             var normalizedEmail = email?.Trim();
+            var normalizedPublicId = publicId?.Trim();
 
             var user = id.HasValue
                 ? query.FirstOrDefault(item => item.Id == id.Value)
-                : query.FirstOrDefault(item => item.Email == normalizedEmail);
+                : !string.IsNullOrWhiteSpace(normalizedPublicId)
+                    ? query.FirstOrDefault(item => item.PublicId == normalizedPublicId)
+                    : query.FirstOrDefault(item => item.Email == normalizedEmail);
 
             if (user == null)
             {
@@ -40,14 +43,19 @@ namespace Gamesphere.Controllers
             var teamName = user.TeamId.HasValue
                 ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.Name).FirstOrDefault()
                 : null;
+            var teamPublicId = user.TeamId.HasValue
+                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.PublicId).FirstOrDefault()
+                : null;
 
             return Ok(new
             {
                 user.Id,
+                user.PublicId,
                 user.Username,
                 user.Email,
                 gamerTag = user.Username,
                 user.TeamId,
+                teamPublicId,
                 teamName,
                 user.CreatedAt,
                 user.IsAdmin
@@ -55,17 +63,20 @@ namespace Gamesphere.Controllers
         }
 
         [HttpPut("me")]
-        public IActionResult UpdateMe([FromQuery] int? id, [FromQuery] string? email, [FromBody] UpdateUserProfileDTO dto)
+        public IActionResult UpdateMe([FromQuery] int? id, [FromQuery] string? publicId, [FromQuery] string? email, [FromBody] UpdateUserProfileDTO dto)
         {
-            if (!id.HasValue && string.IsNullOrWhiteSpace(email))
+            if (!id.HasValue && string.IsNullOrWhiteSpace(publicId) && string.IsNullOrWhiteSpace(email))
             {
-                return BadRequest("A user id or email is required.");
+                return BadRequest("A user id, user public id, or email is required.");
             }
 
             var normalizedEmail = email?.Trim();
+            var normalizedPublicId = publicId?.Trim();
             var user = id.HasValue
                 ? _ctx.Users.FirstOrDefault(item => item.Id == id.Value)
-                : _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
+                : !string.IsNullOrWhiteSpace(normalizedPublicId)
+                    ? _ctx.Users.FirstOrDefault(item => item.PublicId == normalizedPublicId)
+                    : _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
 
             if (user == null)
             {
@@ -118,14 +129,19 @@ namespace Gamesphere.Controllers
             var teamName = user.TeamId.HasValue
                 ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.Name).FirstOrDefault()
                 : null;
+            var teamPublicId = user.TeamId.HasValue
+                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.PublicId).FirstOrDefault()
+                : null;
 
             return Ok(new
             {
                 user.Id,
+                user.PublicId,
                 user.Username,
                 user.Email,
                 gamerTag = user.Username,
                 user.TeamId,
+                teamPublicId,
                 teamName,
                 user.CreatedAt,
                 user.IsAdmin

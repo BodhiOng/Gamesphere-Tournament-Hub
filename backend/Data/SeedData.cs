@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
+using Gamesphere.Utilities;
+using System.Collections.Generic;
 
 namespace Gamesphere.Data
 {
@@ -30,6 +32,7 @@ namespace Gamesphere.Data
             {
                 admin = new User
                 {
+                    PublicId = GenerateUniqueUserPublicId(ctx),
                     Username = "admin",
                     Email = "admin@example.com",
                     CreatedAt = DateTime.UtcNow,
@@ -51,6 +54,11 @@ namespace Gamesphere.Data
             if (!admin.IsAdmin)
             {
                 admin.IsAdmin = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(admin.PublicId))
+            {
+                admin.PublicId = GenerateUniqueUserPublicId(ctx);
             }
 
             ctx.Users.Update(admin);
@@ -110,70 +118,103 @@ namespace Gamesphere.Data
             var admin = ctx.Users.FirstOrDefault(user => user.Email == "admin@example.com" || user.Username == "admin");
             if (admin == null)
             {
-                admin = CreateUser(passwordHasher, "admin", "admin@example.com", AdminPassword, new DateTime(2026, 5, 1, 9, 0, 0, DateTimeKind.Utc));
+                admin = CreateUser(ctx, passwordHasher, "admin", "admin@example.com", AdminPassword, new DateTime(2026, 5, 1, 9, 0, 0, DateTimeKind.Utc));
                 admin.IsAdmin = true;
                 ctx.Users.Add(admin);
                 ctx.SaveChanges();
             }
 
-            var aceCaptain = CreateUser(passwordHasher, "AceCaptain", "acecaptain@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 0, 0, DateTimeKind.Utc));
-            var pulseWave = CreateUser(passwordHasher, "PulseWave", "pulsewave@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 5, 0, DateTimeKind.Utc));
-            var frostAim = CreateUser(passwordHasher, "FrostAim", "frostaim@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 10, 0, DateTimeKind.Utc));
-            var nullVector = CreateUser(passwordHasher, "NullVector", "nullvector@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 15, 0, DateTimeKind.Utc));
-            var driftPixel = CreateUser(passwordHasher, "DriftPixel", "driftpixel@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 20, 0, DateTimeKind.Utc));
-            var staticRay = CreateUser(passwordHasher, "StaticRay", "staticray@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 25, 0, DateTimeKind.Utc));
-            var emberRush = CreateUser(passwordHasher, "EmberRush", "emberrush@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 30, 0, DateTimeKind.Utc));
-            var haloStrike = CreateUser(passwordHasher, "HaloStrike", "halostrike@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 35, 0, DateTimeKind.Utc));
-            var novaByte = CreateUser(passwordHasher, "NovaByte", "novabyte@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 40, 0, DateTimeKind.Utc));
-            var echoFrame = CreateUser(passwordHasher, "EchoFrame", "echoframe@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 45, 0, DateTimeKind.Utc));
-            var riftRunner = CreateUser(passwordHasher, "RiftRunner", "riftrunner@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 50, 0, DateTimeKind.Utc));
-            var solsticeX = CreateUser(passwordHasher, "SolsticeX", "solsticex@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 55, 0, DateTimeKind.Utc));
-            var multiMike = CreateUser(passwordHasher, "MultiMike", "multimike@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 0, 0, DateTimeKind.Utc));
-            var sharedSage = CreateUser(passwordHasher, "SharedSage", "sharedsage@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 5, 0, DateTimeKind.Utc));
-            var teamSeeker = CreateUser(passwordHasher, "TeamSeeker", "teamseeker@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 10, 0, DateTimeKind.Utc));
-            var loneScout = CreateUser(passwordHasher, "LoneScout", "lonescout@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 12, 0, DateTimeKind.Utc));
+            var aceCaptain = CreateUser(ctx, passwordHasher, "AceCaptain", "acecaptain@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 0, 0, DateTimeKind.Utc));
+            var pulseWave = CreateUser(ctx, passwordHasher, "PulseWave", "pulsewave@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 5, 0, DateTimeKind.Utc));
+            var frostAim = CreateUser(ctx, passwordHasher, "FrostAim", "frostaim@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 10, 0, DateTimeKind.Utc));
+            var nullVector = CreateUser(ctx, passwordHasher, "NullVector", "nullvector@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 15, 0, DateTimeKind.Utc));
+            var driftPixel = CreateUser(ctx, passwordHasher, "DriftPixel", "driftpixel@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 20, 0, DateTimeKind.Utc));
+            var staticRay = CreateUser(ctx, passwordHasher, "StaticRay", "staticray@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 25, 0, DateTimeKind.Utc));
+            var emberRush = CreateUser(ctx, passwordHasher, "EmberRush", "emberrush@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 30, 0, DateTimeKind.Utc));
+            var haloStrike = CreateUser(ctx, passwordHasher, "HaloStrike", "halostrike@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 35, 0, DateTimeKind.Utc));
+            var novaByte = CreateUser(ctx, passwordHasher, "NovaByte", "novabyte@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 40, 0, DateTimeKind.Utc));
+            var echoFrame = CreateUser(ctx, passwordHasher, "EchoFrame", "echoframe@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 45, 0, DateTimeKind.Utc));
+            var riftRunner = CreateUser(ctx, passwordHasher, "RiftRunner", "riftrunner@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 50, 0, DateTimeKind.Utc));
+            var solsticeX = CreateUser(ctx, passwordHasher, "SolsticeX", "solsticex@example.com", SamplePassword, new DateTime(2026, 5, 2, 10, 55, 0, DateTimeKind.Utc));
+            var multiMike = CreateUser(ctx, passwordHasher, "MultiMike", "multimike@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 0, 0, DateTimeKind.Utc));
+            var sharedSage = CreateUser(ctx, passwordHasher, "SharedSage", "sharedsage@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 5, 0, DateTimeKind.Utc));
+            var teamSeeker = CreateUser(ctx, passwordHasher, "TeamSeeker", "teamseeker@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 10, 0, DateTimeKind.Utc));
+            var loneScout = CreateUser(ctx, passwordHasher, "LoneScout", "lonescout@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 12, 0, DateTimeKind.Utc));
 
             ctx.Users.AddRange(aceCaptain, pulseWave, frostAim, nullVector, driftPixel, staticRay, emberRush, haloStrike, novaByte, echoFrame, riftRunner, solsticeX, multiMike, sharedSage, teamSeeker, loneScout);
             ctx.SaveChanges();
 
+            var userByPublicId = new[]
+            {
+                aceCaptain,
+                pulseWave,
+                frostAim,
+                nullVector,
+                driftPixel,
+                staticRay,
+                emberRush,
+                haloStrike,
+                novaByte,
+                echoFrame,
+                riftRunner,
+                solsticeX,
+                multiMike,
+                sharedSage,
+                teamSeeker,
+                loneScout
+            }
+            .ToDictionary(user => user.PublicId);
+
             var novaCore = CreateTeam(
+                ctx,
                 "Nova Core",
-                aceCaptain.Id,
+                aceCaptain.PublicId,
+                userByPublicId,
                 "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=300&q=60",
                 loremFiveParagraphs,
                 "Valorant, CS2"
             );
             var quantumFive = CreateTeam(
+                ctx,
                 "Quantum Five",
-                frostAim.Id,
+                frostAim.PublicId,
+                userByPublicId,
                 "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=300&q=60",
                 loremFiveParagraphs,
                 "Apex Legends, Valorant"
             );
             var arcSyndicate = CreateTeam(
+                ctx,
                 "Arc Syndicate",
-                driftPixel.Id,
+                driftPixel.PublicId,
+                userByPublicId,
                 "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=300&q=60",
                 loremFiveParagraphs,
                 "League of Legends, Dota 2"
             );
             var velocityUnit = CreateTeam(
+                ctx,
                 "Velocity Unit",
-                emberRush.Id,
+                emberRush.PublicId,
+                userByPublicId,
                 "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=300&q=60",
                 loremFiveParagraphs,
                 "Counter-Strike 2, Rainbow Six Siege"
             );
             var zenithForge = CreateTeam(
+                ctx,
                 "Zenith Forge",
-                novaByte.Id,
+                novaByte.PublicId,
+                userByPublicId,
                 "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&q=60",
                 loremFiveParagraphs,
                 "League of Legends, Valorant"
             );
             var hyperionPulse = CreateTeam(
+                ctx,
                 "Hyperion Pulse",
-                riftRunner.Id,
+                riftRunner.PublicId,
+                userByPublicId,
                 "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?auto=format&fit=crop&w=300&q=60",
                 loremFiveParagraphs,
                 "Apex Legends, Overwatch 2"
@@ -181,6 +222,17 @@ namespace Gamesphere.Data
 
             ctx.Teams.AddRange(novaCore, quantumFive, arcSyndicate, velocityUnit, zenithForge, hyperionPulse);
             ctx.SaveChanges();
+
+            var teamByPublicId = new[]
+            {
+                novaCore,
+                quantumFive,
+                arcSyndicate,
+                velocityUnit,
+                zenithForge,
+                hyperionPulse
+            }
+            .ToDictionary(team => team.PublicId);
 
             var nonAdminUsers = new[]
             {
@@ -216,8 +268,8 @@ namespace Gamesphere.Data
                     (user, userIndex) => allTeams.Select(
                         (team, teamIndex) => new TeamMember
                         {
-                            TeamId = team.Id,
-                            UserId = user.Id,
+                            TeamId = team.PublicId,
+                            UserId = user.PublicId,
                             JoinedAt = seedMembershipStart.AddMinutes((userIndex * allTeams.Length) + teamIndex)
                         }
                     )
@@ -228,7 +280,7 @@ namespace Gamesphere.Data
 
             for (var i = 0; i < nonAdminUsers.Length; i++)
             {
-                nonAdminUsers[i].TeamId = allTeams[i % allTeams.Length].Id;
+                nonAdminUsers[i].TeamId = ResolveTeamId(allTeams[i % allTeams.Length].PublicId, teamByPublicId);
             }
 
             ctx.SaveChanges();
@@ -260,21 +312,21 @@ namespace Gamesphere.Data
             ctx.TeamJoinRequests.AddRange(
                 new TeamJoinRequest
                 {
-                    TeamId = arcSyndicate.Id,
-                    RequesterUserId = teamSeeker.Id,
+                    TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId),
+                    RequesterUserId = ResolveUserId(teamSeeker.PublicId, userByPublicId),
                     Status = TeamJoinRequestStatus.Pending,
                     Message = "Looking to scrim regularly and join your League roster.",
                     RequestedAt = new DateTime(2026, 5, 2, 16, 0, 0, DateTimeKind.Utc)
                 },
                 new TeamJoinRequest
                 {
-                    TeamId = velocityUnit.Id,
-                    RequesterUserId = loneScout.Id,
+                    TeamId = ResolveTeamId(velocityUnit.PublicId, teamByPublicId),
+                    RequesterUserId = ResolveUserId(loneScout.PublicId, userByPublicId),
                     Status = TeamJoinRequestStatus.Rejected,
                     Message = "Would like to trial for support role.",
                     RequestedAt = new DateTime(2026, 5, 2, 16, 10, 0, DateTimeKind.Utc),
                     ReviewedAt = new DateTime(2026, 5, 2, 16, 30, 0, DateTimeKind.Utc),
-                    ReviewedByUserId = emberRush.Id
+                    ReviewedByUserId = ResolveUserId(emberRush.PublicId, userByPublicId)
                 }
             );
 
@@ -422,14 +474,15 @@ namespace Gamesphere.Data
             ctx.Tournaments.AddRange(tournaments);
             ctx.SaveChanges();
 
+            var tournamentByPublicId = tournaments.ToDictionary(tournament => tournament.PublicId);
+
             var seededRegistrations = tournaments
                 .SelectMany(
                     (tournament, tournamentIndex) => allTeams.Select(
                         (team, teamIndex) => new Registration
                         {
-                            TournamentId = tournament.Id,
-                            TeamId = team.Id,
-                            Approved = tournament.Status != "Upcoming" && ((tournamentIndex + teamIndex) % 2 == 0)
+                            TournamentId = tournament.PublicId,
+                            TeamId = team.PublicId,
                         }
                     )
                 )
@@ -439,63 +492,63 @@ namespace Gamesphere.Data
 
             var leaderboardOne = new Leaderboard
             {
-                TournamentId = tournaments[0].Id,
+                TournamentId = ResolveTournamentId(tournaments[0].PublicId, tournamentByPublicId),
                 Entries = new System.Collections.Generic.List<LeaderboardEntry>
                 {
-                    new LeaderboardEntry { TeamId = novaCore.Id, Rank = 1, Points = 42 },
-                    new LeaderboardEntry { TeamId = quantumFive.Id, Rank = 2, Points = 36 },
-                    new LeaderboardEntry { TeamId = arcSyndicate.Id, Rank = 3, Points = 28 }
+                    new LeaderboardEntry { TeamId = ResolveTeamId(novaCore.PublicId, teamByPublicId), Rank = 1, Points = 42 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(quantumFive.PublicId, teamByPublicId), Rank = 2, Points = 36 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId), Rank = 3, Points = 28 }
                 }
             };
 
             var leaderboardTwo = new Leaderboard
             {
-                TournamentId = tournaments[1].Id,
+                TournamentId = ResolveTournamentId(tournaments[1].PublicId, tournamentByPublicId),
                 Entries = new System.Collections.Generic.List<LeaderboardEntry>
                 {
-                    new LeaderboardEntry { TeamId = arcSyndicate.Id, Rank = 1, Points = 39 },
-                    new LeaderboardEntry { TeamId = velocityUnit.Id, Rank = 2, Points = 33 },
-                    new LeaderboardEntry { TeamId = hyperionPulse.Id, Rank = 3, Points = 27 }
+                    new LeaderboardEntry { TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId), Rank = 1, Points = 39 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(velocityUnit.PublicId, teamByPublicId), Rank = 2, Points = 33 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(hyperionPulse.PublicId, teamByPublicId), Rank = 3, Points = 27 }
                 }
             };
 
             var leaderboardThree = new Leaderboard
             {
-                TournamentId = tournaments[2].Id,
+                TournamentId = ResolveTournamentId(tournaments[2].PublicId, tournamentByPublicId),
                 Entries = new System.Collections.Generic.List<LeaderboardEntry>
                 {
-                    new LeaderboardEntry { TeamId = zenithForge.Id, Rank = 1, Points = 45 },
-                    new LeaderboardEntry { TeamId = hyperionPulse.Id, Rank = 2, Points = 41 }
+                    new LeaderboardEntry { TeamId = ResolveTeamId(zenithForge.PublicId, teamByPublicId), Rank = 1, Points = 45 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(hyperionPulse.PublicId, teamByPublicId), Rank = 2, Points = 41 }
                 }
             };
 
             var leaderboardFour = new Leaderboard
             {
-                TournamentId = tournaments[3].Id,
+                TournamentId = ResolveTournamentId(tournaments[3].PublicId, tournamentByPublicId),
                 Entries = new System.Collections.Generic.List<LeaderboardEntry>
                 {
-                    new LeaderboardEntry { TeamId = velocityUnit.Id, Rank = 1, Points = 50 },
-                    new LeaderboardEntry { TeamId = quantumFive.Id, Rank = 2, Points = 44 }
+                    new LeaderboardEntry { TeamId = ResolveTeamId(velocityUnit.PublicId, teamByPublicId), Rank = 1, Points = 50 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(quantumFive.PublicId, teamByPublicId), Rank = 2, Points = 44 }
                 }
             };
 
             var leaderboardFive = new Leaderboard
             {
-                TournamentId = tournaments[4].Id,
+                TournamentId = ResolveTournamentId(tournaments[4].PublicId, tournamentByPublicId),
                 Entries = new System.Collections.Generic.List<LeaderboardEntry>
                 {
-                    new LeaderboardEntry { TeamId = hyperionPulse.Id, Rank = 1, Points = 38 },
-                    new LeaderboardEntry { TeamId = novaCore.Id, Rank = 2, Points = 31 }
+                    new LeaderboardEntry { TeamId = ResolveTeamId(hyperionPulse.PublicId, teamByPublicId), Rank = 1, Points = 38 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(novaCore.PublicId, teamByPublicId), Rank = 2, Points = 31 }
                 }
             };
 
             var leaderboardSix = new Leaderboard
             {
-                TournamentId = tournaments[5].Id,
+                TournamentId = ResolveTournamentId(tournaments[5].PublicId, tournamentByPublicId),
                 Entries = new System.Collections.Generic.List<LeaderboardEntry>
                 {
-                    new LeaderboardEntry { TeamId = arcSyndicate.Id, Rank = 1, Points = 47 },
-                    new LeaderboardEntry { TeamId = zenithForge.Id, Rank = 2, Points = 43 }
+                    new LeaderboardEntry { TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId), Rank = 1, Points = 47 },
+                    new LeaderboardEntry { TeamId = ResolveTeamId(zenithForge.PublicId, teamByPublicId), Rank = 2, Points = 43 }
                 }
             };
 
@@ -503,10 +556,11 @@ namespace Gamesphere.Data
             ctx.SaveChanges();
         }
 
-        private static User CreateUser(PasswordHasher<User> passwordHasher, string username, string email, string password, DateTime createdAt)
+        private static User CreateUser(AppDbContext ctx, PasswordHasher<User> passwordHasher, string username, string email, string password, DateTime createdAt)
         {
             var user = new User
             {
+                PublicId = GenerateUniqueUserPublicId(ctx),
                 Username = username,
                 Email = email,
                 CreatedAt = createdAt,
@@ -517,16 +571,78 @@ namespace Gamesphere.Data
             return user;
         }
 
-        private static Team CreateTeam(string name, int captainUserId, string? logoUrl = null, string? description = null, string? preferredGames = null)
+        private static Team CreateTeam(
+            AppDbContext ctx,
+            string name,
+            string captainUserPublicId,
+            IReadOnlyDictionary<string, User> userByPublicId,
+            string? logoUrl = null,
+            string? description = null,
+            string? preferredGames = null)
         {
             return new Team
             {
+                PublicId = GenerateUniqueTeamPublicId(ctx),
                 Name = name,
-                CaptainUserId = captainUserId,
+                CaptainUserId = captainUserPublicId,
                 LogoUrl = logoUrl,
                 Description = description,
                 PreferredGames = preferredGames
             };
+        }
+
+        private static int ResolveUserId(string publicId, IReadOnlyDictionary<string, User> userByPublicId)
+        {
+            if (!userByPublicId.TryGetValue(publicId, out var user))
+            {
+                throw new InvalidOperationException($"User with PublicId '{publicId}' was not found during seed mapping.");
+            }
+
+            return user.Id;
+        }
+
+        private static int ResolveTeamId(string publicId, IReadOnlyDictionary<string, Team> teamByPublicId)
+        {
+            if (!teamByPublicId.TryGetValue(publicId, out var team))
+            {
+                throw new InvalidOperationException($"Team with PublicId '{publicId}' was not found during seed mapping.");
+            }
+
+            return team.Id;
+        }
+
+        private static int ResolveTournamentId(string publicId, IReadOnlyDictionary<string, Tournament> tournamentByPublicId)
+        {
+            if (!tournamentByPublicId.TryGetValue(publicId, out var tournament))
+            {
+                throw new InvalidOperationException($"Tournament with PublicId '{publicId}' was not found during seed mapping.");
+            }
+
+            return tournament.Id;
+        }
+
+        private static string GenerateUniqueUserPublicId(AppDbContext ctx)
+        {
+            string publicId;
+            do
+            {
+                publicId = IdGenerator.GenerateUserPublicId();
+            }
+            while (ctx.Users.Any(item => item.PublicId == publicId));
+
+            return publicId;
+        }
+
+        private static string GenerateUniqueTeamPublicId(AppDbContext ctx)
+        {
+            string publicId;
+            do
+            {
+                publicId = IdGenerator.GenerateTeamPublicId();
+            }
+            while (ctx.Teams.Any(item => item.PublicId == publicId));
+
+            return publicId;
         }
     }
 }
