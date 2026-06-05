@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Gamesphere.Models
 {
@@ -12,8 +13,10 @@ namespace Gamesphere.Models
         public string PasswordHash { get; set; } = null!;
         public DateTime CreatedAt { get; set; }
         public bool IsAdmin { get; set; }
+        public bool IsBanned { get; set; }
+        public DateTime? SuspendedUntilUtc { get; set; }
+        [NotMapped]
         public int? TeamId { get; set; }
-        public Team? Team { get; set; }
         public List<TeamMember>? TeamMemberships { get; set; }
     }
 }

@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
-import { approveAccountRequest, deleteAccountRequest, getAccountRequests, rejectAccountRequest } from '../../api/adminApi';
+import {
+  approveAccountRequest,
+  deleteAccountRequest,
+  deleteReportedAccount,
+  getAccountRequests,
+  getReports,
+  rejectAccountRequest,
+  suspendReportedAccount,
+} from '../../api/adminApi';
 import { createTournament, getTournaments, getTournamentById, updateTournament, deleteTournament } from '../../api/tournamentApi';
 import DeleteConfirm from '../../components/DeleteConfirm/DeleteConfirm';
+import { useAuth } from '../../context/AuthContext';
 
 const TOURNAMENTS_PER_PAGE = 10;
 const REQUESTS_PER_PAGE = 10;
+const REPORTS_PER_PAGE = 10;
 
 function formatDateInputValue(iso) {
   if (!iso) return '';
@@ -40,6 +50,7 @@ const regionOptions = [
 ];
 
 function AdminPanel() {
+  const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,6 +58,21 @@ function AdminPanel() {
   const [requestStatusFilter, setRequestStatusFilter] = useState('all');
   const [requestDeleteTarget, setRequestDeleteTarget] = useState(null);
   const [requestPage, setRequestPage] = useState(1);
+  const [reports, setReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportSearch, setReportSearch] = useState('');
+  const [reportStatusFilter, setReportStatusFilter] = useState('all');
+  const [reportPage, setReportPage] = useState(1);
+  const [reportActionBusy, setReportActionBusy] = useState('');
+  const [reportSuspendUntil, setReportSuspendUntil] = useState({});
+  const [selectedReport, setSelectedReport] = useState(null);
+
+  const truncateText = (value, maxLength = 140) => {
+    const text = String(value || '').trim();
+    if (!text) return '-';
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength - 1)}...`;
+  };
 
   const getRequestStatusLabel = (status) => {
     if (typeof status === 'string') {
@@ -119,6 +145,55 @@ function AdminPanel() {
       await refreshRequests();
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const loadReports = async () => {
+    setReportsLoading(true);
+    setError('');
+    try {
+      const data = await getReports();
+      setReports(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || 'Failed to load reports.');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const onModerateReport = async (reportId, action) => {
+    setError('');
+    const token = `${action}:${reportId}`;
+    setReportActionBusy(token);
+
+    try {
+      if (action === 'delete') {
+        await deleteReportedAccount(reportId);
+      } else {
+        const localValue = reportSuspendUntil[reportId];
+        if (!localValue) {
+          throw new Error('Pick a suspension end date and time first.');
+        }
+
+        const utcIso = new Date(localValue).toISOString();
+        await suspendReportedAccount(reportId, utcIso, user);
+      }
+
+      await loadReports();
+      if (selectedReport?.id === reportId) {
+        setSelectedReport((current) => {
+          if (!current) return null;
+          return {
+            ...current,
+            status: 'Resolved',
+            resolutionAction: action,
+          };
+        });
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to moderate report.');
+    } finally {
+      setReportActionBusy('');
     }
   };
 
@@ -322,6 +397,13 @@ function AdminPanel() {
   }, [active]);
 
   useEffect(() => {
+    if (active === 'moderate-reports') {
+      setReportPage(1);
+      loadReports();
+    }
+  }, [active]);
+
+  useEffect(() => {
     setRequestPage(1);
   }, [requestSearch, requestStatusFilter]);
 
@@ -332,8 +414,46 @@ function AdminPanel() {
   }, [requestPage, totalRequestPages]);
 
   useEffect(() => {
+    setReportPage(1);
+  }, [reportSearch, reportStatusFilter]);
+
+  useEffect(() => {
     setSelectedImageLoadFailed(false);
   }, [selected?.id, selected?.image]);
+
+  const filteredReports = reports.filter((report) => {
+    const status = String(report?.status || '').toLowerCase();
+    if (reportStatusFilter !== 'all' && status !== reportStatusFilter) {
+      return false;
+    }
+
+    const query = reportSearch.trim().toLowerCase();
+    if (!query) {
+      return true;
+    }
+
+    const reportId = String(report?.id || '').toLowerCase();
+    const subject = String(report?.subject || '').toLowerCase();
+    const reportedUsername = String(report?.reportedUsername || report?.reportedUserPublicId || '').toLowerCase();
+    const reporterUsername = String(report?.reporterUsername || report?.reporterUserPublicId || '').toLowerCase();
+
+    return reportId.includes(query)
+      || subject.includes(query)
+      || reportedUsername.includes(query)
+      || reporterUsername.includes(query);
+  });
+
+  const totalReportPages = Math.max(1, Math.ceil(filteredReports.length / REPORTS_PER_PAGE));
+  const paginatedReports = filteredReports.slice(
+    (reportPage - 1) * REPORTS_PER_PAGE,
+    reportPage * REPORTS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    if (reportPage > totalReportPages) {
+      setReportPage(totalReportPages);
+    }
+  }, [reportPage, totalReportPages]);
 
   return (
     <div className="admin-layout">
@@ -436,7 +556,7 @@ function AdminPanel() {
 
             {/* Create modal */}
             {createOpen && (
-              <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'start center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
+              <div className="surface-card" style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1200 }}>
                 <div style={{ width: 'min(980px, 96%)' }}>
                   <section className="surface-card tournament-form-modal" style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -752,10 +872,187 @@ function AdminPanel() {
         {active === 'moderate-reports' && (
           <section id="moderate-reports" className="surface-card">
             <h3>Moderate reports</h3>
-            <p>Review player reports, ban appeals, and moderation history.</p>
-            <div className="cta-row" style={{ marginTop: '1rem' }}>
-              <button type="button" className="ghost-btn">Review Reports</button>
+            <p>Review incoming player reports and take moderation action.</p>
+
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.8rem', flexWrap: 'wrap' }}>
+              <input
+                type="search"
+                value={reportSearch}
+                onChange={(event) => setReportSearch(event.target.value)}
+                placeholder="Search by report ID, subject, reporter, or reported user"
+                style={{ padding: '0.45rem 0.6rem', minWidth: '280px' }}
+              />
+              <select value={reportStatusFilter} onChange={(event) => setReportStatusFilter(event.target.value)} style={{ padding: '0.45rem 0.6rem' }}>
+                <option value="all">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+              </select>
             </div>
+
+            {reportsLoading ? <p style={{ marginTop: '0.8rem' }}>Loading reports...</p> : null}
+            {!reportsLoading && filteredReports.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No reports match your filters.</p> : null}
+
+            {!reportsLoading && filteredReports.length > 0 ? (
+              <div style={{ overflowX: 'auto', marginTop: '0.8rem' }}>
+                <table className="table-shell auth-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Reported User</th>
+                      <th>Reporter</th>
+                      <th>Subject</th>
+                      <th>Description</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedReports.map((report) => {
+                      const createdAtLabel = report.createdAt ? new Date(report.createdAt).toLocaleString() : '-';
+                      const isResolved = String(report.status || '').toLowerCase() === 'resolved';
+                      const suspendInputValue = reportSuspendUntil[report.id] || '';
+
+                      return (
+                        <tr key={report.id}>
+                          <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{report.id}</td>
+                          <td>{report.reportedUsername || report.reportedUserPublicId || '-'}</td>
+                          <td>{report.reporterUsername || report.reporterUserPublicId || report.reporterUserId || '-'}</td>
+                          <td className="admin-report-subject-cell" title={report.subject || ''}>
+                            <span className="admin-report-subject-preview">
+                              {report.subject || '-'}
+                            </span>
+                          </td>
+                          <td className="admin-report-description-cell" title={report.description || ''}>
+                            <span className="admin-report-description-preview">
+                              {report.description || '-'}
+                            </span>
+                          </td>
+                          <td>
+                            {report.status || '-'}
+                            {report.resolutionAction ? ` (${report.resolutionAction})` : ''}
+                          </td>
+                          <td>{createdAtLabel}</td>
+                          <td>
+                            <div className="admin-report-actions">
+                              <button
+                                type="button"
+                                className="ghost-btn"
+                                onClick={() => setSelectedReport(report)}
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <div className="admin-pagination-row">
+                  <p className="admin-pagination-summary">
+                    Showing {filteredReports.length === 0 ? 0 : (reportPage - 1) * REPORTS_PER_PAGE + 1}
+                    {' '}-{' '}
+                    {Math.min(reportPage * REPORTS_PER_PAGE, filteredReports.length)}
+                    {' '}of {filteredReports.length}
+                  </p>
+                  <div className="admin-pagination-controls">
+                    <button type="button" className="ghost-btn" disabled={reportPage <= 1} onClick={() => setReportPage((page) => Math.max(1, page - 1))}>Previous</button>
+                    <span>Page {reportPage} of {totalReportPages}</span>
+                    <button type="button" className="ghost-btn" disabled={reportPage >= totalReportPages} onClick={() => setReportPage((page) => Math.min(totalReportPages, page + 1))}>Next</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {selectedReport ? (
+              <div
+                className="surface-card admin-report-modal-backdrop"
+                role="presentation"
+                onClick={() => setSelectedReport(null)}
+              >
+                <section
+                  className="surface-card tournament-view-modal admin-report-modal-shell"
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="card-header">
+                      <div>
+                        <h3>Report details</h3>
+                        <p className="tournament-view-subtitle">Report #{selectedReport.id}</p>
+                      </div>
+                      <div>
+                        <button type="button" className="ghost-btn" onClick={() => setSelectedReport(null)}>Close</button>
+                      </div>
+                    </div>
+
+                    <dl className="tournament-view-meta-grid" style={{ marginTop: '1rem' }}>
+                      <div className="tournament-view-meta-item">
+                        <dt>Reported User</dt>
+                        <dd>{selectedReport.reportedUsername || selectedReport.reportedUserPublicId || '-'}</dd>
+                      </div>
+                      <div className="tournament-view-meta-item">
+                        <dt>Reporter</dt>
+                        <dd>{selectedReport.reporterUsername || selectedReport.reporterUserPublicId || '-'}</dd>
+                      </div>
+                      <div className="tournament-view-meta-item">
+                        <dt>Status</dt>
+                        <dd>
+                          {selectedReport.status || '-'}
+                          {selectedReport.resolutionAction ? ` (${selectedReport.resolutionAction})` : ''}
+                        </dd>
+                      </div>
+                      <div className="tournament-view-meta-item">
+                        <dt>Created</dt>
+                        <dd>{selectedReport.createdAt ? new Date(selectedReport.createdAt).toLocaleDateString() : '-'}</dd>
+                      </div>
+                    </dl>
+
+                    <article className="surface-card compact admin-report-field-card" style={{ marginTop: '0.8rem' }}>
+                      <h4>Subject</h4>
+                      <p className="admin-report-modal-field-content">{selectedReport.subject || '-'}</p>
+                    </article>
+
+                    <article className="surface-card compact admin-report-field-card admin-report-description-card" style={{ marginTop: '0.8rem' }}>
+                      <h4>Description</h4>
+                      <p className="admin-report-modal-field-content admin-report-modal-description-content">{selectedReport.description || '-'}</p>
+                    </article>
+
+                    <div className="admin-report-actions" style={{ marginTop: '1rem' }}>
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        disabled={String(selectedReport.status || '').toLowerCase() === 'resolved' || reportActionBusy === `delete:${selectedReport.id}`}
+                        onClick={() => onModerateReport(selectedReport.id, 'delete')}
+                      >
+                        {reportActionBusy === `delete:${selectedReport.id}` ? 'Deleting...' : 'Delete Account'}
+                      </button>
+                      <input
+                        type="datetime-local"
+                        value={reportSuspendUntil[selectedReport.id] || ''}
+                        disabled={String(selectedReport.status || '').toLowerCase() === 'resolved' || reportActionBusy === `suspend:${selectedReport.id}`}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setReportSuspendUntil((current) => ({
+                            ...current,
+                            [selectedReport.id]: value,
+                          }));
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        disabled={String(selectedReport.status || '').toLowerCase() === 'resolved' || reportActionBusy === `suspend:${selectedReport.id}`}
+                        onClick={() => onModerateReport(selectedReport.id, 'suspend')}
+                      >
+                        {reportActionBusy === `suspend:${selectedReport.id}` ? 'Suspending...' : 'Suspend Account'}
+                      </button>
+                    </div>
+                </section>
+              </div>
+            ) : null}
           </section>
         )}
       </main>

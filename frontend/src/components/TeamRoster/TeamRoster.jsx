@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 
-function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveMember, onAssignCaptain, currentUserId, currentUsername }) {
+function TeamRoster({
+  members,
+  captainUserId,
+  canManage,
+  savingAction,
+  onRemoveMember,
+  onAssignCaptain,
+  currentUserId,
+  currentUsername,
+  onOpenUserProfile,
+}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -96,7 +106,20 @@ function TeamRoster({ members, captainUserId, canManage, savingAction, onRemoveM
 
             return (
               <tr key={member.id}>
-                <td>{member.gamerTag}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="linklike-btn roster-user-link"
+                    disabled={!member.publicId}
+                    onClick={() => {
+                      if (member.publicId) {
+                        onOpenUserProfile?.(member.publicId);
+                      }
+                    }}
+                  >
+                    {member.gamerTag}
+                  </button>
+                </td>
                 <td>{member.role}</td>
                 <td>{member.status}</td>
                 {canManage ? (

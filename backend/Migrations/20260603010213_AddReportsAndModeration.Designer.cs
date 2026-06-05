@@ -3,6 +3,7 @@ using System;
 using Gamesphere.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gamesphere.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260603010213_AddReportsAndModeration")]
+    partial class AddReportsAndModeration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -145,12 +148,11 @@ namespace Gamesphere.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("ReportedUserPublicId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("ReportedUserId")
+                        .HasColumnType("integer");
 
-                    b.Property<string>("ReporterUserPublicId")
-                        .HasColumnType("text");
+                    b.Property<int?>("ReporterUserId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ResolutionAction")
                         .HasColumnType("text");
@@ -158,8 +160,8 @@ namespace Gamesphere.Migrations
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ReviewedByUserPublicId")
-                        .HasColumnType("text");
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -173,7 +175,7 @@ namespace Gamesphere.Migrations
 
                     b.HasIndex("CreatedAt");
 
-                    b.HasIndex("Status", "ReportedUserPublicId");
+                    b.HasIndex("Status", "ReportedUserId");
 
                     b.ToTable("Reports");
                 });
@@ -372,6 +374,9 @@ namespace Gamesphere.Migrations
                     b.Property<DateTime?>("SuspendedUntilUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("TeamId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasColumnType("text");
@@ -380,6 +385,8 @@ namespace Gamesphere.Migrations
 
                     b.HasIndex("PublicId")
                         .IsUnique();
+
+                    b.HasIndex("TeamId");
 
                     b.ToTable("Users");
                 });
@@ -453,6 +460,15 @@ namespace Gamesphere.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Gamesphere.Models.User", b =>
+                {
+                    b.HasOne("Gamesphere.Models.Team", "Team")
+                        .WithMany("Members")
+                        .HasForeignKey("TeamId");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("Gamesphere.Models.Leaderboard", b =>
                 {
                     b.Navigation("Entries");
@@ -460,6 +476,8 @@ namespace Gamesphere.Migrations
 
             modelBuilder.Entity("Gamesphere.Models.Team", b =>
                 {
+                    b.Navigation("Members");
+
                     b.Navigation("Registrations");
 
                     b.Navigation("TeamMemberships");

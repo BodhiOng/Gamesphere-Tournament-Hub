@@ -3,6 +3,7 @@ using System;
 using Gamesphere.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gamesphere.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260603133042_SwitchReportsToPublicIdsAndDropUserTeamId")]
+    partial class SwitchReportsToPublicIdsAndDropUserTeamId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -381,6 +384,8 @@ namespace Gamesphere.Migrations
                     b.HasIndex("PublicId")
                         .IsUnique();
 
+                    b.HasIndex("TeamId");
+
                     b.ToTable("Users");
                 });
 
@@ -453,6 +458,15 @@ namespace Gamesphere.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Gamesphere.Models.User", b =>
+                {
+                    b.HasOne("Gamesphere.Models.Team", "Team")
+                        .WithMany("Members")
+                        .HasForeignKey("TeamId");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("Gamesphere.Models.Leaderboard", b =>
                 {
                     b.Navigation("Entries");
@@ -460,6 +474,8 @@ namespace Gamesphere.Migrations
 
             modelBuilder.Entity("Gamesphere.Models.Team", b =>
                 {
+                    b.Navigation("Members");
+
                     b.Navigation("Registrations");
 
                     b.Navigation("TeamMemberships");

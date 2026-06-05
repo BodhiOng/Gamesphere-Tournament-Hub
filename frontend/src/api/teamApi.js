@@ -13,6 +13,7 @@ function normalizeMember(member, index) {
 
   return {
     id: member.id ?? member.username ?? member.gamerTag ?? index,
+    publicId: member.publicId ?? member.PublicId ?? '',
     username: member.username ?? member.gamerTag ?? '-',
     gamerTag: member.gamerTag ?? member.username ?? '-',
     role: member.role ?? '-',
@@ -51,6 +52,7 @@ function normalizeDiscoverMember(item, index) {
 
   return {
     id: item.id ?? index,
+    publicId: item.publicId ?? '',
     username: item.username ?? '-',
     role: item.role ?? 'Member',
     joinedAt: item.joinedAt ?? null,

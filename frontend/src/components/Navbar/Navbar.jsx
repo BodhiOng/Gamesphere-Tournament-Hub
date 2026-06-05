@@ -11,13 +11,17 @@ const navItems = [
 ];
 
 function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, isSessionActive } = useAuth();
   const navigate = useNavigate();
-  // determine which nav items to show based on role
   const isAdmin = !!user?.isAdmin;
-  const displayedItems = isAdmin
+  const showAuthLinks = Boolean(user && isSessionActive);
+  const displayedItems = isAdmin && showAuthLinks
     ? navItems.filter((item) => item.to === '/admin' || item.to === '/profile')
-    : navItems.filter((item) => (!item.authRequired || user) && !item.adminOnly);
+    : navItems.filter((item) => {
+      if (item.adminOnly) return false;
+      if (item.authRequired) return showAuthLinks;
+      return true;
+    });
 
   return (
     <header className="gs-navbar">
@@ -41,7 +45,7 @@ function Navbar() {
       </nav>
 
       <div className="user-tools">
-        {user ? (
+        {showAuthLinks ? (
           <>
             <span>{user.gamerTag}</span>
             <button

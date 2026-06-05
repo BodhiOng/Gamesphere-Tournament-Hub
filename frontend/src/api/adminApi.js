@@ -25,3 +25,25 @@ export async function rejectAccountRequest(id) {
 export async function deleteAccountRequest(id) {
   return request(`/api/admin/account-requests/${id}`, { method: 'DELETE' });
 }
+
+export async function getReports() {
+  return request('/api/admin/reports');
+}
+
+export async function deleteReportedAccount(reportId) {
+  return request(`/api/admin/reports/${reportId}/delete-account`, { method: 'POST' });
+}
+
+export async function suspendReportedAccount(reportId, suspendedUntilUtc, actorUser) {
+  const actorUserPublicId = actorUser?.publicId ?? null;
+  const actorEmail = actorUser?.email ?? null;
+
+  return request(`/api/admin/reports/${reportId}/suspend-account`, {
+    method: 'POST',
+    body: JSON.stringify({
+      actorUserPublicId,
+      actorEmail,
+      suspendedUntilUtc,
+    }),
+  });
+}

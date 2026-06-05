@@ -12,15 +12,30 @@ import Register from '../pages/Register/Register';
 import TeamManagement from '../pages/TeamManagement/TeamManagement';
 import TournamentDetails from '../pages/TournamentDetails/TournamentDetails';
 import Tournaments from '../pages/Tournaments/Tournaments';
+import UserProfile from '../pages/UserProfile/UserProfile';
 
 function RequireAdmin({ children }) {
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, isSessionActive } = useAuth();
 
   if (!isAuthReady) {
     return null;
   }
 
-  if (!user || !user.isAdmin) {
+  if (!user || !user.isAdmin || !isSessionActive) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
+function RequireActiveUser({ children }) {
+  const { user, isAuthReady, isSessionActive } = useAuth();
+
+  if (!isAuthReady) {
+    return null;
+  }
+
+  if (!user || !isSessionActive) {
     return <Navigate to="/" replace />;
   }
 
@@ -37,10 +52,11 @@ function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:id" element={<TournamentDetails />} />
-        <Route path="/team-management" element={<TeamManagement />} />
+        <Route path="/team-management" element={<RequireActiveUser><TeamManagement /></RequireActiveUser>} />
         <Route path="/schedule" element={<MatchSchedule />} />
-        <Route path="/leaderboards" element={<Leaderboards />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/leaderboards" element={<RequireActiveUser><Leaderboards /></RequireActiveUser>} />
+        <Route path="/profile" element={<RequireActiveUser><Profile /></RequireActiveUser>} />
+        <Route path="/users/:userPublicId" element={<UserProfile />} />
       </Route>
 
       <Route element={<AdminLayout />}>

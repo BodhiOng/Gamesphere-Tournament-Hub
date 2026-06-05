@@ -21,11 +21,62 @@ function normalizeUserProfile(item) {
 
   return {
     id: item.id,
+    publicId: item.publicId ?? '',
     username: item.username,
     email: item.email,
     gamerTag: item.gamerTag ?? item.username,
     createdAt: item.createdAt,
     isAdmin: Boolean(item.isAdmin),
+    isBanned: Boolean(item.isBanned),
+    suspendedUntilUtc: item.suspendedUntilUtc ?? null,
+  };
+}
+
+function normalizeTeamEnrollment(item, index) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  return {
+    id: item.id ?? index,
+    publicId: item.publicId ?? '',
+    name: item.name ?? '-',
+    joinedAt: item.joinedAt ?? null,
+    isCaptain: Boolean(item.isCaptain),
+  };
+}
+
+function normalizeTournamentHistoryItem(item, index) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  return {
+    tournamentId: item.tournamentId ?? index,
+    tournamentPublicId: item.tournamentPublicId ?? '',
+    tournamentName: item.tournamentName ?? '-',
+    tournamentImage: item.tournamentImage ?? '',
+    tournamentStatus: item.tournamentStatus ?? '',
+    tournamentStartDate: item.tournamentStartDate ?? null,
+    teamId: item.teamId ?? null,
+    teamPublicId: item.teamPublicId ?? '',
+    teamName: item.teamName ?? '-',
+  };
+}
+
+function normalizePublicUserProfile(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  return {
+    user: normalizeUserProfile(payload.user),
+    teams: Array.isArray(payload.teams)
+      ? payload.teams.map(normalizeTeamEnrollment).filter(Boolean)
+      : [],
+    tournamentHistory: Array.isArray(payload.tournamentHistory)
+      ? payload.tournamentHistory.map(normalizeTournamentHistoryItem).filter(Boolean)
+      : [],
   };
 }
 
@@ -74,4 +125,62 @@ export async function updateCurrentUserProfile(user, payload) {
     });
 
   return normalizeUserProfile(data);
+}
+
+export async function getPublicUserProfile(userPublicId) {
+  const publicId = String(userPublicId || '').trim();
+  if (!publicId) {
+    throw new Error('User public id is required.');
+  }
+
+  let data;
+  try {
+    data = await request(`/api/user/public/${encodeURIComponent(publicId)}`);
+  } catch (err) {
+    if (err?.message === 'Not Found') {
+      throw new Error('User profile endpoint is unavailable. Restart the backend and try again.');
+    }
+
+    throw err;
+  }
+
+  const normalized = normalizePublicUserProfile(data);
+  if (!normalized || !normalized.user) {
+    throw new Error('User not found.');
+  }
+
+  return normalized;
+}
+
+export async function createUserReport(actorUser, payload) {
+  if (!actorUser) {
+    throw new Error('You must be logged in to submit a report.');
+  }
+
+  const subject = String(payload?.subject || '').trim();
+  const description = String(payload?.description || '').trim();
+  const reportedUserPublicId = String(payload?.reportedUserPublicId || '').trim();
+
+  if (!reportedUserPublicId) {
+    throw new Error('Reported user id is required.');
+  }
+
+  if (!subject) {
+    throw new Error('Report subject is required.');
+  }
+
+  if (!description) {
+    throw new Error('Report description is required.');
+  }
+
+  return request('/api/report', {
+    method: 'POST',
+    body: JSON.stringify({
+      reporterUserPublicId: actorUser.publicId,
+      reporterEmail: actorUser.email,
+      reportedUserPublicId,
+      subject,
+      description,
+    }),
+  });
 }

@@ -19,7 +19,7 @@ function Login() {
 
     try {
       const response = await login(form);
-      navigate(response?.user?.isAdmin ? '/admin' : '/team-management');
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err.message);
     }

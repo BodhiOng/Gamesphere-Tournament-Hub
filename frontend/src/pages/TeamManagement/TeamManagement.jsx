@@ -935,6 +935,15 @@ function TeamManagement() {
     }
   };
 
+  const onOpenUserProfile = (userPublicId) => {
+    const normalizedPublicId = String(userPublicId || '').trim();
+    if (!normalizedPublicId) {
+      return;
+    }
+
+    navigate(`/users/${encodeURIComponent(normalizedPublicId)}`);
+  };
+
   const filteredDiscoverTeams = useMemo(() => {
     const query = discoverSearch.trim().toLowerCase();
     const compactQuery = query.replace(/[^a-z0-9]/g, '');
@@ -1387,6 +1396,7 @@ function TeamManagement() {
               currentUsername={user?.username ?? user?.gamerTag ?? ''}
               onRemoveMember={onRemoveMember}
               onAssignCaptain={onAssignCaptain}
+              onOpenUserProfile={onOpenUserProfile}
             />
           ) : <p style={{ marginTop: '0.5rem' }}>No roster members available right now.</p>}
         </article>
@@ -1625,7 +1635,16 @@ function TeamManagement() {
                   <tbody>
                     {discoverRosterSlice.length > 0 ? discoverRosterSlice.map((member) => (
                       <tr key={`${member.id}-${member.username}`}>
-                        <td>{member.username}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="linklike-btn roster-user-link"
+                            disabled={!member.publicId}
+                            onClick={() => onOpenUserProfile(member.publicId)}
+                          >
+                            {member.username}
+                          </button>
+                        </td>
                         <td>{member.role}</td>
                       </tr>
                     )) : (

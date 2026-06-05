@@ -15,10 +15,14 @@ namespace Gamesphere.Data
         public DbSet<AccountRequest> AccountRequests => Set<AccountRequest>();
         public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
         public DbSet<TeamJoinRequest> TeamJoinRequests => Set<TeamJoinRequest>();
+        public DbSet<Report> Reports => Set<Report>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<User>()
+                .Ignore(item => item.TeamId);
 
             modelBuilder.Entity<User>()
                 .HasIndex(item => item.PublicId)
@@ -88,6 +92,20 @@ namespace Gamesphere.Data
                 .WithMany()
                 .HasForeignKey(item => item.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Report>()
+                .Property(item => item.Subject)
+                .HasMaxLength(120);
+
+            modelBuilder.Entity<Report>()
+                .Property(item => item.Description)
+                .HasMaxLength(1000);
+
+            modelBuilder.Entity<Report>()
+                .HasIndex(item => item.CreatedAt);
+
+            modelBuilder.Entity<Report>()
+                .HasIndex(item => new { item.Status, item.ReportedUserPublicId });
         }
     }
 }

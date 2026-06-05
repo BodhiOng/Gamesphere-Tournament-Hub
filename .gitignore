@@ -13,3 +13,6 @@
 # Root-level coverage and build logs
 /CodeCoverage/
 /*.binlog
+
+.lsp
+.clj-kondo

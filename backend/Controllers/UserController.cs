@@ -40,13 +40,6 @@ namespace Gamesphere.Controllers
                 return NotFound("User not found.");
             }
 
-            var teamName = user.TeamId.HasValue
-                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.Name).FirstOrDefault()
-                : null;
-            var teamPublicId = user.TeamId.HasValue
-                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.PublicId).FirstOrDefault()
-                : null;
-
             return Ok(new
             {
                 user.Id,
@@ -54,11 +47,10 @@ namespace Gamesphere.Controllers
                 user.Username,
                 user.Email,
                 gamerTag = user.Username,
-                user.TeamId,
-                teamPublicId,
-                teamName,
                 user.CreatedAt,
-                user.IsAdmin
+                user.IsAdmin,
+                user.IsBanned,
+                user.SuspendedUntilUtc
             });
         }
 
@@ -126,13 +118,6 @@ namespace Gamesphere.Controllers
 
             _ctx.SaveChanges();
 
-            var teamName = user.TeamId.HasValue
-                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.Name).FirstOrDefault()
-                : null;
-            var teamPublicId = user.TeamId.HasValue
-                ? _ctx.Teams.Where(team => team.Id == user.TeamId.Value).Select(team => team.PublicId).FirstOrDefault()
-                : null;
-
             return Ok(new
             {
                 user.Id,
@@ -140,11 +125,94 @@ namespace Gamesphere.Controllers
                 user.Username,
                 user.Email,
                 gamerTag = user.Username,
-                user.TeamId,
-                teamPublicId,
-                teamName,
                 user.CreatedAt,
-                user.IsAdmin
+                user.IsAdmin,
+                user.IsBanned,
+                user.SuspendedUntilUtc
+            });
+        }
+
+        [HttpGet("public/{userPublicId}")]
+        public IActionResult GetPublicProfile(string userPublicId)
+        {
+            var normalizedPublicId = userPublicId?.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedPublicId))
+            {
+                return BadRequest("User public id is required.");
+            }
+
+            var user = _ctx.Users.AsNoTracking().FirstOrDefault(item => item.PublicId == normalizedPublicId);
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            var teams = _ctx.TeamMembers.AsNoTracking()
+                .Where(item => item.UserId == user.PublicId)
+                .Join(
+                    _ctx.Teams.AsNoTracking(),
+                    membership => membership.TeamId,
+                    team => team.PublicId,
+                    (membership, team) => new
+                    {
+                        id = team.Id,
+                        publicId = team.PublicId,
+                        name = team.Name,
+                        joinedAt = membership.JoinedAt,
+                        isCaptain = team.CaptainUserId == user.PublicId
+                    }
+                )
+                .OrderByDescending(item => item.joinedAt)
+                .ThenBy(item => item.name)
+                .ToList();
+
+            var teamPublicIds = teams
+                .Select(item => item.publicId)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct()
+                .ToList();
+
+            var tournamentHistory = _ctx.Registrations.AsNoTracking()
+                .Where(item => teamPublicIds.Contains(item.TeamId))
+                .Join(
+                    _ctx.Teams.AsNoTracking(),
+                    registration => registration.TeamId,
+                    team => team.PublicId,
+                    (registration, team) => new { registration, team }
+                )
+                .Join(
+                    _ctx.Tournaments.AsNoTracking(),
+                    item => item.registration.TournamentId,
+                    tournament => tournament.PublicId,
+                    (item, tournament) => new
+                    {
+                        tournamentId = tournament.Id,
+                        tournamentPublicId = tournament.PublicId,
+                        tournamentName = tournament.Name,
+                        tournamentImage = tournament.Image,
+                        tournamentStatus = tournament.Status,
+                        tournamentStartDate = tournament.StartDate,
+                        teamId = item.team.Id,
+                        teamPublicId = item.team.PublicId,
+                        teamName = item.team.Name
+                    }
+                )
+                .OrderByDescending(item => item.tournamentStartDate)
+                .ThenBy(item => item.tournamentName)
+                .ToList();
+
+            return Ok(new
+            {
+                user = new
+                {
+                    user.Id,
+                    user.PublicId,
+                    user.Username,
+                    gamerTag = user.Username,
+                    user.CreatedAt
+                },
+                teams,
+                tournamentHistory
             });
         }
     }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Gamesphere.Data;
+using Gamesphere.DTOs;
 using Gamesphere.Models;
 using Gamesphere.Utilities;
 using Microsoft.AspNetCore.Identity;
@@ -153,6 +154,231 @@ namespace Gamesphere.Controllers
             _ctx.SaveChanges();
 
             return Ok(new { message = "Account request and related user (if any) deleted." });
+        }
+
+        [HttpGet("reports")]
+        public IActionResult GetReports()
+        {
+            var reports = _ctx.Reports
+                .OrderByDescending(item => item.CreatedAt)
+                .Select(item => new
+                {
+                    item.Id,
+                    item.Subject,
+                    item.Description,
+                    status = item.Status.ToString(),
+                    item.CreatedAt,
+                    item.ReviewedAt,
+                    item.ResolutionAction,
+                    reportedUserPublicId = item.ReportedUserPublicId,
+                    reportedUsername = _ctx.Users.Where(user => user.PublicId == item.ReportedUserPublicId).Select(user => user.Username).FirstOrDefault() ?? "[Deleted User]",
+                    reportedEmail = _ctx.Users.Where(user => user.PublicId == item.ReportedUserPublicId).Select(user => user.Email).FirstOrDefault(),
+                    reporterUserPublicId = item.ReporterUserPublicId,
+                    reporterUsername = !string.IsNullOrWhiteSpace(item.ReporterUserPublicId)
+                        ? _ctx.Users.Where(user => user.PublicId == item.ReporterUserPublicId).Select(user => user.Username).FirstOrDefault()
+                        : null,
+                    reporterEmail = !string.IsNullOrWhiteSpace(item.ReporterUserPublicId)
+                        ? _ctx.Users.Where(user => user.PublicId == item.ReporterUserPublicId).Select(user => user.Email).FirstOrDefault()
+                        : null
+                })
+                .ToList();
+
+            return Ok(reports);
+        }
+
+        [HttpPost("reports/{id}/delete-account")]
+        public IActionResult DeleteReportedAccount(int id)
+        {
+            var report = _ctx.Reports.FirstOrDefault(item => item.Id == id);
+            if (report == null)
+            {
+                return NotFound("Report not found.");
+            }
+
+            var targetUser = _ctx.Users.FirstOrDefault(item => item.PublicId == report.ReportedUserPublicId);
+            if (targetUser == null)
+            {
+                return NotFound("Reported user no longer exists.");
+            }
+
+            DeleteUserAndPublicIdLinkedData(targetUser);
+            _ctx.Users.Remove(targetUser);
+            ResolveReport(report, "DeleteAccount");
+            _ctx.SaveChanges();
+
+            return Ok(new { message = "Reported account deleted.", reportId = report.Id });
+        }
+
+        [HttpPost("reports/{id}/suspend-account")]
+        public IActionResult SuspendReportedAccount(int id, [FromBody] SuspendReportedUserDTO dto)
+        {
+            var report = _ctx.Reports.FirstOrDefault(item => item.Id == id);
+            if (report == null)
+            {
+                return NotFound("Report not found.");
+            }
+
+            var targetUser = _ctx.Users.FirstOrDefault(item => item.PublicId == report.ReportedUserPublicId);
+            if (targetUser == null)
+            {
+                return NotFound("Reported user no longer exists.");
+            }
+
+            var actor = ResolveActor(dto.ActorUserPublicId, dto.ActorEmail);
+            if (actor == null)
+            {
+                return NotFound("Acting user not found.");
+            }
+
+            if (!dto.SuspendedUntilUtc.HasValue)
+            {
+                return BadRequest("Suspension end date is required.");
+            }
+
+            var suspensionEndUtc = DateTime.SpecifyKind(dto.SuspendedUntilUtc.Value, DateTimeKind.Utc);
+            if (suspensionEndUtc <= DateTime.UtcNow)
+            {
+                return BadRequest("Suspension end date must be in the future.");
+            }
+
+            targetUser.IsBanned = false;
+            targetUser.SuspendedUntilUtc = suspensionEndUtc;
+            ResolveReport(report, "SuspendAccount", actor.PublicId);
+            _ctx.SaveChanges();
+
+            return Ok(new { message = "Reported account suspended.", suspendedUntilUtc = suspensionEndUtc, reportId = report.Id });
+        }
+
+        [HttpPost("reports/{id}/ban-account")]
+        public IActionResult BanReportedAccount(int id)
+        {
+            var report = _ctx.Reports.FirstOrDefault(item => item.Id == id);
+            if (report == null)
+            {
+                return NotFound("Report not found.");
+            }
+
+            var targetUser = _ctx.Users.FirstOrDefault(item => item.PublicId == report.ReportedUserPublicId);
+            if (targetUser == null)
+            {
+                return NotFound("Reported user no longer exists.");
+            }
+
+            DeleteUserAndPublicIdLinkedData(targetUser);
+            _ctx.Users.Remove(targetUser);
+            ResolveReport(report, "BanAccount");
+            _ctx.SaveChanges();
+
+            return Ok(new { message = "Reported account banned and deleted.", reportId = report.Id });
+        }
+
+        private static void ResolveReport(Report report, string action, string? reviewedByUserPublicId = null)
+        {
+            report.Status = ReportStatus.Resolved;
+            report.ResolutionAction = action;
+            report.ReviewedAt = DateTime.UtcNow;
+            report.ReviewedByUserPublicId = reviewedByUserPublicId;
+        }
+
+        private User? ResolveActor(string? publicId, string? email = null)
+        {
+            var normalizedPublicId = publicId?.Trim();
+            var normalizedEmail = email?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(normalizedPublicId))
+            {
+                return _ctx.Users.FirstOrDefault(item => item.PublicId == normalizedPublicId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedEmail))
+            {
+                return _ctx.Users.FirstOrDefault(item => item.Email == normalizedEmail);
+            }
+
+            return null;
+        }
+
+        private void DeleteUserAndPublicIdLinkedData(User targetUser)
+        {
+            var targetUserPublicId = targetUser.PublicId;
+            var captainTeams = _ctx.Teams.Where(item => item.CaptainUserId == targetUserPublicId).ToList();
+
+            foreach (var team in captainTeams)
+            {
+                var replacementCaptainPublicId = _ctx.TeamMembers
+                    .Where(item => item.TeamId == team.PublicId && item.UserId != targetUserPublicId)
+                    .OrderBy(item => item.JoinedAt)
+                    .Select(item => item.UserId)
+                    .FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(replacementCaptainPublicId))
+                {
+                    team.CaptainUserId = replacementCaptainPublicId;
+                    continue;
+                }
+
+                var memberships = _ctx.TeamMembers.Where(item => item.TeamId == team.PublicId).ToList();
+                var affectedUserPublicIds = memberships
+                    .Select(item => item.UserId)
+                    .Where(item => !string.Equals(item, targetUserPublicId, StringComparison.Ordinal))
+                    .Distinct()
+                    .ToList();
+
+                foreach (var memberPublicId in affectedUserPublicIds)
+                {
+                    var member = _ctx.Users.FirstOrDefault(item => item.PublicId == memberPublicId);
+                    if (member != null && member.TeamId == team.Id)
+                    {
+                        member.TeamId = ResolveFallbackTeamId(memberPublicId, team.PublicId);
+                    }
+                }
+
+                if (memberships.Count > 0)
+                {
+                    _ctx.TeamMembers.RemoveRange(memberships);
+                }
+
+                var pendingRequests = _ctx.TeamJoinRequests.Where(item => item.TeamId == team.Id).ToList();
+                if (pendingRequests.Count > 0)
+                {
+                    _ctx.TeamJoinRequests.RemoveRange(pendingRequests);
+                }
+
+                _ctx.Teams.Remove(team);
+            }
+
+            var activeTeamId = targetUser.TeamId;
+            if (activeTeamId.HasValue)
+            {
+                var activeTeamPublicId = _ctx.Teams
+                    .Where(item => item.Id == activeTeamId.Value)
+                    .Select(item => item.PublicId)
+                    .FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(activeTeamPublicId))
+                {
+                    targetUser.TeamId = ResolveFallbackTeamId(targetUserPublicId, activeTeamPublicId);
+                }
+                else
+                {
+                    targetUser.TeamId = null;
+                }
+            }
+        }
+
+        private int? ResolveFallbackTeamId(string userPublicId, string removedTeamPublicId)
+        {
+            return _ctx.TeamMembers
+                .Where(item => item.UserId == userPublicId && item.TeamId != removedTeamPublicId)
+                .Join(
+                    _ctx.Teams,
+                    membership => membership.TeamId,
+                    team => team.PublicId,
+                    (membership, team) => new { membershipId = membership.Id, teamId = team.Id }
+                )
+                .OrderBy(item => item.membershipId)
+                .Select(item => (int?)item.teamId)
+                .FirstOrDefault();
         }
     }
 }

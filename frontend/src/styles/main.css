@@ -352,6 +352,33 @@ button {
   font-weight: 600;
 }
 
+.linklike-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.linklike-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.roster-user-link {
+  color: #8fe1ff;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(143, 225, 255, 0.38);
+  text-underline-offset: 0.15rem;
+}
+
+.roster-user-link:hover:not(:disabled) {
+  color: #caf2ff;
+  text-decoration-color: rgba(202, 242, 255, 0.8);
+}
+
 .team-management-page {
   min-height: calc(100vh - 140px);
   display: flex;
@@ -929,6 +956,15 @@ button {
   opacity: 1;
 }
 
+.user-report-limit-text {
+  font-size: 0.82rem;
+  color: var(--muted-ink);
+}
+
+.team-inline-field:has(.team-input-error) .user-report-limit-text {
+  color: #ff8f8f;
+}
+
 .team-summary-note {
   display: grid;
   gap: 0.75rem;
@@ -1175,6 +1211,135 @@ button {
   margin: 0 0 1rem;
   color: var(--muted-ink);
   font-size: 0.92rem;
+}
+
+.user-profile-page {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.user-profile-header-card {
+  margin-top: 0.25rem;
+}
+
+.user-profile-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.user-profile-public-id {
+  margin-top: 0.3rem;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: var(--muted-ink);
+  font-size: 0.86rem;
+}
+
+.user-profile-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.user-profile-section-head span {
+  color: var(--muted-ink);
+  font-size: 0.88rem;
+}
+
+.user-profile-team-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.user-profile-team-chip {
+  border: 1px solid rgba(147, 194, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(147, 194, 255, 0.1);
+  padding: 0.55rem 0.75rem;
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+  display: grid;
+  justify-items: start;
+  gap: 0.2rem;
+}
+
+.user-profile-team-chip:hover {
+  border-color: rgba(27, 200, 166, 0.5);
+  background: rgba(27, 200, 166, 0.15);
+}
+
+.user-profile-team-chip small {
+  color: var(--muted-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.user-profile-history-table td,
+.user-profile-history-table th {
+  white-space: nowrap;
+}
+
+.user-profile-history-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.user-profile-history-controls .team-details-tournament-filter {
+  margin: 0;
+}
+
+.user-report-form {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.user-report-form textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(6, 16, 34, 0.6);
+  color: var(--ink);
+  padding: 0.55rem 0.65rem;
+  font-family: inherit;
+}
+
+.admin-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.admin-report-actions input[type='datetime-local'] {
+  min-width: 210px;
+}
+
+.admin-report-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  padding: 1rem;
+  background: rgba(2, 6, 12, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.admin-report-modal-shell {
+  width: min(980px, 96%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 720px) {
@@ -1728,6 +1893,65 @@ select:focus {
 .auth-table td:last-child {
   width: auto;
   min-width: 260px; /* ensure action column can contain buttons on one row */
+}
+
+.admin-report-description-cell {
+  max-width: 340px;
+  width: 340px;
+}
+
+.admin-report-subject-cell {
+  max-width: 180px;
+  width: 180px;
+}
+
+.admin-report-subject-preview {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.admin-report-description-preview {
+  display: block;
+  overflow: hidden;
+  line-height: 1.35;
+  max-height: calc(1.35em * 2);
+  overflow-wrap: anywhere;
+}
+
+@supports (-webkit-line-clamp: 2) {
+  .admin-report-description-preview {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+.admin-report-modal-description-scroll {
+  margin-top: 0.35rem;
+  height: min(320px, 42vh);
+  min-height: 180px;
+}
+
+.admin-report-modal-field-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.35rem;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.admin-report-modal-field-scroll p {
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-report-modal-description-scroll p {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .admin-pagination-row {
