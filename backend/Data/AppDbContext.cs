@@ -16,6 +16,7 @@ namespace Gamesphere.Data
         public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
         public DbSet<TeamJoinRequest> TeamJoinRequests => Set<TeamJoinRequest>();
         public DbSet<Report> Reports => Set<Report>();
+        public DbSet<MatchResult> MatchResults => Set<MatchResult>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -107,6 +108,48 @@ namespace Gamesphere.Data
 
             modelBuilder.Entity<Report>()
                 .HasIndex(item => new { item.Status, item.ReportedUserPublicId });
+
+            modelBuilder.Entity<MatchResult>()
+                .HasIndex(item => item.PublicId)
+                .IsUnique();
+
+            modelBuilder.Entity<MatchResult>()
+                .HasIndex(item => new { item.TournamentPublicId, item.RoundNumber });
+
+            modelBuilder.Entity<MatchResult>()
+                .HasOne<Tournament>()
+                .WithMany()
+                .HasForeignKey(item => item.TournamentPublicId)
+                .HasPrincipalKey(item => item.PublicId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<MatchResult>()
+                .HasOne<Team>()
+                .WithMany()
+                .HasForeignKey(item => item.TeamAPublicId)
+                .HasPrincipalKey(item => item.PublicId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MatchResult>()
+                .HasOne<Team>()
+                .WithMany()
+                .HasForeignKey(item => item.TeamBPublicId)
+                .HasPrincipalKey(item => item.PublicId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MatchResult>()
+                .HasOne<Team>()
+                .WithMany()
+                .HasForeignKey(item => item.WinnerTeamPublicId)
+                .HasPrincipalKey(item => item.PublicId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<MatchResult>()
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(item => item.ReviewedByUserPublicId)
+                .HasPrincipalKey(item => item.PublicId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

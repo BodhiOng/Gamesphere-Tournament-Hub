@@ -309,7 +309,7 @@ function Tournaments() {
                   }
 
                   setSelectedTournament(null);
-                  navigate(`/tournaments/${selectedTournament.id}`);
+                  navigate(`/tournaments/${selectedTournament.publicId || selectedTournament.id}`);
                 }}
               >
                 Apply

@@ -35,15 +35,55 @@ export async function deleteReportedAccount(reportId) {
 }
 
 export async function suspendReportedAccount(reportId, suspendedUntilUtc, actorUser) {
+  const actorUserId = actorUser?.id ?? null;
   const actorUserPublicId = actorUser?.publicId ?? null;
   const actorEmail = actorUser?.email ?? null;
 
   return request(`/api/admin/reports/${reportId}/suspend-account`, {
     method: 'POST',
     body: JSON.stringify({
+      actorUserId,
       actorUserPublicId,
       actorEmail,
       suspendedUntilUtc,
     }),
+  });
+}
+
+export async function getMatchResults() {
+  return request('/api/admin/match-results');
+}
+
+export async function getMatchResultLookups() {
+  return request('/api/admin/match-results/lookups');
+}
+
+export async function createMatchResult(payload, actorUser) {
+  return request('/api/admin/match-results', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...payload,
+      actorUserId: actorUser?.id ?? null,
+      actorUserPublicId: actorUser?.publicId ?? null,
+      actorEmail: actorUser?.email ?? null,
+    }),
+  });
+}
+
+export async function updateMatchResult(id, payload, actorUser) {
+  return request(`/api/admin/match-results/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      ...payload,
+      actorUserId: actorUser?.id ?? null,
+      actorUserPublicId: actorUser?.publicId ?? null,
+      actorEmail: actorUser?.email ?? null,
+    }),
+  });
+}
+
+export async function deleteMatchResult(id) {
+  return request(`/api/admin/match-results/${id}`, {
+    method: 'DELETE',
   });
 }

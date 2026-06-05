@@ -13,7 +13,7 @@ function TournamentCard({ tournament }) {
         <li>Start Date: {tournament.startDate}</li>
         <li>Team Slots: {tournament.teamSlots}</li>
       </ul>
-      <Link to={`/tournaments/${tournament.id}`} className="primary-btn">
+      <Link to={`/tournaments/${tournament.publicId || tournament.id}`} className="primary-btn">
         View Details
       </Link>
     </article>

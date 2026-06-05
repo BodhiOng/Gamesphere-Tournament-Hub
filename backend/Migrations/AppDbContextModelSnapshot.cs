@@ -103,6 +103,66 @@ namespace Gamesphere.Migrations
                     b.ToTable("LeaderboardEntry");
                 });
 
+            modelBuilder.Entity("Gamesphere.Models.MatchResult", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewedByUserPublicId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RoundNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TeamAPublicId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TeamAScore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TeamBPublicId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TeamBScore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TournamentPublicId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("WinnerTeamPublicId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("ReviewedByUserPublicId");
+
+                    b.HasIndex("TeamAPublicId");
+
+                    b.HasIndex("TeamBPublicId");
+
+                    b.HasIndex("WinnerTeamPublicId");
+
+                    b.HasIndex("TournamentPublicId", "RoundNumber");
+
+                    b.ToTable("MatchResults");
+                });
+
             modelBuilder.Entity("Gamesphere.Models.Registration", b =>
                 {
                     b.Property<int>("Id")
@@ -386,6 +446,42 @@ namespace Gamesphere.Migrations
                     b.HasOne("Gamesphere.Models.Leaderboard", null)
                         .WithMany("Entries")
                         .HasForeignKey("LeaderboardId");
+                });
+
+            modelBuilder.Entity("Gamesphere.Models.MatchResult", b =>
+                {
+                    b.HasOne("Gamesphere.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserPublicId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Gamesphere.Models.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamAPublicId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gamesphere.Models.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamBPublicId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Gamesphere.Models.Tournament", null)
+                        .WithMany()
+                        .HasForeignKey("TournamentPublicId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Gamesphere.Models.Team", null)
+                        .WithMany()
+                        .HasForeignKey("WinnerTeamPublicId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Gamesphere.Models.Registration", b =>

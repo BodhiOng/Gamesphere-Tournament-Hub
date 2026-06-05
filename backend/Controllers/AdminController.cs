@@ -186,6 +186,176 @@ namespace Gamesphere.Controllers
             return Ok(reports);
         }
 
+        [HttpGet("match-results")]
+        public IActionResult GetMatchResults()
+        {
+            var results = _ctx.MatchResults
+                .OrderBy(item => item.TournamentPublicId)
+                .ThenBy(item => item.RoundNumber)
+                .ThenByDescending(item => item.CreatedAtUtc)
+                .Select(item => new
+                {
+                    item.Id,
+                    item.PublicId,
+                    item.TournamentPublicId,
+                    tournamentName = _ctx.Tournaments.Where(tournament => tournament.PublicId == item.TournamentPublicId).Select(tournament => tournament.Name).FirstOrDefault(),
+                    item.TeamAPublicId,
+                    teamAName = _ctx.Teams.Where(team => team.PublicId == item.TeamAPublicId).Select(team => team.Name).FirstOrDefault(),
+                    item.TeamBPublicId,
+                    teamBName = _ctx.Teams.Where(team => team.PublicId == item.TeamBPublicId).Select(team => team.Name).FirstOrDefault(),
+                    item.RoundNumber,
+                    item.TeamAScore,
+                    item.TeamBScore,
+                    item.WinnerTeamPublicId,
+                    winnerTeamName = !string.IsNullOrWhiteSpace(item.WinnerTeamPublicId)
+                        ? _ctx.Teams.Where(team => team.PublicId == item.WinnerTeamPublicId).Select(team => team.Name).FirstOrDefault()
+                        : null,
+                    item.ReviewedByUserPublicId,
+                    reviewedByUsername = !string.IsNullOrWhiteSpace(item.ReviewedByUserPublicId)
+                        ? _ctx.Users.Where(user => user.PublicId == item.ReviewedByUserPublicId).Select(user => user.Username).FirstOrDefault()
+                        : null,
+                    item.CreatedAtUtc
+                })
+                .ToList();
+
+            return Ok(results);
+        }
+
+        [HttpGet("match-results/lookups")]
+        public IActionResult GetMatchResultLookups()
+        {
+            var tournaments = _ctx.Tournaments
+                .OrderBy(item => item.Name)
+                .Select(item => new
+                {
+                    item.Id,
+                    item.PublicId,
+                    item.Name,
+                    item.Status,
+                    item.StartDate,
+                    item.TeamSlots
+                })
+                .ToList();
+
+            var teams = _ctx.Teams
+                .OrderBy(item => item.Name)
+                .Select(item => new
+                {
+                    item.Id,
+                    item.PublicId,
+                    item.Name
+                })
+                .ToList();
+
+            var registrations = _ctx.Registrations
+                .Join(_ctx.Teams,
+                    registration => registration.TeamId,
+                    team => team.PublicId,
+                    (registration, team) => new
+                    {
+                        registration.TournamentId,
+                        registration.TeamId,
+                        teamName = team.Name
+                    })
+                .ToList();
+
+            return Ok(new { tournaments, teams, registrations });
+        }
+
+        [HttpPost("match-results")]
+        public IActionResult CreateMatchResult([FromBody] UpsertMatchResultDTO dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
+            if (actor == null)
+            {
+                return NotFound("Acting user not found.");
+            }
+
+            var validationError = ValidateMatchResult(dto, out var tournament, out var teamA, out var teamB, out var winnerTeam);
+            if (validationError != null)
+            {
+                return BadRequest(validationError);
+            }
+
+            var now = DateTime.UtcNow;
+            var matchResult = new MatchResult
+            {
+                PublicId = GenerateUniqueMatchResultPublicId(),
+                TournamentPublicId = tournament!.PublicId,
+                TeamAPublicId = teamA!.PublicId,
+                TeamBPublicId = teamB!.PublicId,
+                RoundNumber = dto.RoundNumber!.Value,
+                TeamAScore = dto.TeamAScore!.Value,
+                TeamBScore = dto.TeamBScore!.Value,
+                WinnerTeamPublicId = winnerTeam?.PublicId,
+                ReviewedByUserPublicId = actor.PublicId,
+                CreatedAtUtc = now
+            };
+
+            _ctx.MatchResults.Add(matchResult);
+            _ctx.SaveChanges();
+
+            return Ok(new { message = "Match result created.", matchResultId = matchResult.Id, matchResultPublicId = matchResult.PublicId });
+        }
+
+        [HttpPut("match-results/{id}")]
+        public IActionResult UpdateMatchResult(int id, [FromBody] UpsertMatchResultDTO dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
+            var matchResult = _ctx.MatchResults.FirstOrDefault(item => item.Id == id);
+            if (matchResult == null)
+            {
+                return NotFound("Match result not found.");
+            }
+
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
+            if (actor == null)
+            {
+                return NotFound("Acting user not found.");
+            }
+
+            var validationError = ValidateMatchResult(dto, out var tournament, out var teamA, out var teamB, out var winnerTeam);
+            if (validationError != null)
+            {
+                return BadRequest(validationError);
+            }
+
+            matchResult.TournamentPublicId = tournament!.PublicId;
+            matchResult.TeamAPublicId = teamA!.PublicId;
+            matchResult.TeamBPublicId = teamB!.PublicId;
+            matchResult.RoundNumber = dto.RoundNumber!.Value;
+            matchResult.TeamAScore = dto.TeamAScore!.Value;
+            matchResult.TeamBScore = dto.TeamBScore!.Value;
+            matchResult.WinnerTeamPublicId = winnerTeam?.PublicId;
+            matchResult.ReviewedByUserPublicId = actor.PublicId;
+            _ctx.SaveChanges();
+
+            return Ok(new { message = "Match result updated.", matchResultId = matchResult.Id });
+        }
+
+        [HttpDelete("match-results/{id}")]
+        public IActionResult DeleteMatchResult(int id)
+        {
+            var matchResult = _ctx.MatchResults.FirstOrDefault(item => item.Id == id);
+            if (matchResult == null)
+            {
+                return NotFound("Match result not found.");
+            }
+
+            _ctx.MatchResults.Remove(matchResult);
+            _ctx.SaveChanges();
+            return Ok(new { message = "Match result deleted.", matchResultId = id });
+        }
+
         [HttpPost("reports/{id}/delete-account")]
         public IActionResult DeleteReportedAccount(int id)
         {
@@ -224,7 +394,7 @@ namespace Gamesphere.Controllers
                 return NotFound("Reported user no longer exists.");
             }
 
-            var actor = ResolveActor(dto.ActorUserPublicId, dto.ActorEmail);
+            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
@@ -280,10 +450,20 @@ namespace Gamesphere.Controllers
             report.ReviewedByUserPublicId = reviewedByUserPublicId;
         }
 
-        private User? ResolveActor(string? publicId, string? email = null)
+        private User? ResolveActor(int? userId, string? email, string? userPublicId = null)
         {
-            var normalizedPublicId = publicId?.Trim();
+            if (!userId.HasValue && string.IsNullOrWhiteSpace(userPublicId) && string.IsNullOrWhiteSpace(email))
+            {
+                return null;
+            }
+
+            var normalizedPublicId = userPublicId?.Trim();
             var normalizedEmail = email?.Trim();
+
+            if (userId.HasValue)
+            {
+                return _ctx.Users.FirstOrDefault(item => item.Id == userId.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(normalizedPublicId))
             {
@@ -296,6 +476,130 @@ namespace Gamesphere.Controllers
             }
 
             return null;
+        }
+
+        private string GenerateUniqueMatchResultPublicId()
+        {
+            string publicId;
+            do
+            {
+                publicId = IdGenerator.GenerateMatchResultPublicId();
+            }
+            while (_ctx.MatchResults.Any(item => item.PublicId == publicId));
+
+            return publicId;
+        }
+
+        private string? ValidateMatchResult(
+            UpsertMatchResultDTO dto,
+            out Tournament? tournament,
+            out Team? teamA,
+            out Team? teamB,
+            out Team? winnerTeam)
+        {
+            tournament = null;
+            teamA = null;
+            teamB = null;
+            winnerTeam = null;
+
+            var tournamentPublicId = dto.TournamentPublicId?.Trim();
+            var teamAPublicId = dto.TeamAPublicId?.Trim();
+            var teamBPublicId = dto.TeamBPublicId?.Trim();
+            var winnerTeamPublicId = dto.WinnerTeamPublicId?.Trim();
+
+            if (string.IsNullOrWhiteSpace(tournamentPublicId))
+            {
+                return "Tournament is required.";
+            }
+
+            if (string.IsNullOrWhiteSpace(teamAPublicId) || string.IsNullOrWhiteSpace(teamBPublicId))
+            {
+                return "Both teams are required.";
+            }
+
+            if (teamAPublicId == teamBPublicId)
+            {
+                return "Team A and Team B must be different.";
+            }
+
+            if (!dto.RoundNumber.HasValue || dto.RoundNumber.Value < 1)
+            {
+                return "Round is required.";
+            }
+
+            var resolvedTournament = _ctx.Tournaments.FirstOrDefault(item => item.PublicId == tournamentPublicId);
+            if (resolvedTournament == null)
+            {
+                return "Tournament not found.";
+            }
+            tournament = resolvedTournament;
+
+            var maxRounds = GetTournamentMaxRounds(resolvedTournament.TeamSlots);
+            if (dto.RoundNumber.Value > maxRounds)
+            {
+                return $"Round must be between 1 and {maxRounds} for the selected tournament.";
+            }
+
+            var resolvedTeamA = _ctx.Teams.FirstOrDefault(item => item.PublicId == teamAPublicId);
+            var resolvedTeamB = _ctx.Teams.FirstOrDefault(item => item.PublicId == teamBPublicId);
+
+            if (resolvedTeamA == null || resolvedTeamB == null)
+            {
+                return "One or both teams were not found.";
+            }
+            teamA = resolvedTeamA;
+            teamB = resolvedTeamB;
+
+            var teamARegistered = _ctx.Registrations.Any(item => item.TournamentId == resolvedTournament.PublicId && item.TeamId == resolvedTeamA.PublicId);
+            var teamBRegistered = _ctx.Registrations.Any(item => item.TournamentId == resolvedTournament.PublicId && item.TeamId == resolvedTeamB.PublicId);
+            if (!teamARegistered || !teamBRegistered)
+            {
+                return "Both teams must be registered in the selected tournament.";
+            }
+
+            if (!dto.TeamAScore.HasValue || !dto.TeamBScore.HasValue)
+            {
+                return "Both scores are required.";
+            }
+
+            if (dto.TeamAScore.Value < 0 || dto.TeamBScore.Value < 0)
+            {
+                return "Scores cannot be negative.";
+            }
+
+            if (dto.TeamAScore.Value == dto.TeamBScore.Value)
+            {
+                return "Match results cannot end in a draw.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(winnerTeamPublicId))
+            {
+                if (winnerTeamPublicId != teamA.PublicId && winnerTeamPublicId != teamB.PublicId)
+                {
+                    return "Winner must be either Team A or Team B.";
+                }
+
+                winnerTeam = winnerTeamPublicId == teamA.PublicId ? teamA : teamB;
+            }
+
+            if (string.IsNullOrWhiteSpace(winnerTeamPublicId))
+            {
+                return "Winner is required.";
+            }
+
+            var expectedWinnerPublicId = dto.TeamAScore.Value > dto.TeamBScore.Value ? teamA.PublicId : teamB.PublicId;
+            if (!string.Equals(winnerTeamPublicId, expectedWinnerPublicId, StringComparison.Ordinal))
+            {
+                return "Winner does not match the recorded scores.";
+            }
+
+            return null;
+        }
+
+        private static int GetTournamentMaxRounds(int? teamSlots)
+        {
+            var effectiveTeamCount = Math.Max(2, teamSlots ?? 2);
+            return (int)Math.Ceiling(Math.Log2(effectiveTeamCount));
         }
 
         private void DeleteUserAndPublicIdLinkedData(User targetUser)

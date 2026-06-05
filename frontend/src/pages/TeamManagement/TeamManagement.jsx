@@ -28,7 +28,7 @@ function TeamManagement() {
   const [enlistedSearch, setEnlistedSearch] = useState('');
   const [enlistedPage, setEnlistedPage] = useState(0);
   const ENLISTED_COLS = 3;
-  const DISCOVER_PAGE_SIZE = 9;
+  const DISCOVER_PAGE_SIZE = 8;
   const DISCOVER_VISIBLE_GAMES = 3;
   const DISCOVER_ROSTER_PAGE_SIZE = 5;
   const DISCOVER_TOURNAMENT_PAGE_SIZE = 5;
@@ -1544,7 +1544,7 @@ function TeamManagement() {
                       key={entry.id}
                       type="button"
                       className="team-enlisted-cell"
-                      onClick={() => navigate(`/tournaments/${entry.id}`)}
+                      onClick={() => navigate(`/tournaments/${entry.publicId || entry.id}`)}
                     >
                       <div className="team-enlisted-cell-img">
                         {entry.image
@@ -1712,7 +1712,7 @@ function TeamManagement() {
                       <tr
                         key={`discover-tournament-${entry.id}`}
                         className="team-details-tournament-row-item"
-                        onClick={() => navigate(`/tournaments/${entry.id}`)}
+                        onClick={() => navigate(`/tournaments/${entry.publicId || entry.id}`)}
                       >
                         <td>{entry.name}</td>
                         <td className="team-details-tournament-status">{entry.status || '-'}</td>

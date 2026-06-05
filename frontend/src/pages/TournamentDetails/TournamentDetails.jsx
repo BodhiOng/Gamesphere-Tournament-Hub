@@ -1,12 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Navigate, useParams, useNavigate } from 'react-router-dom';
 import LeaderboardTable from '../../components/LeaderboardTable/LeaderboardTable';
 import { getLeaderboard } from '../../api/leaderboardApi';
 import {
   getTournamentById,
+  getTournamentByPublicId,
   deleteTournament,
-  registerTeamForTournament,
-  leaveTeamFromTournament,
+  registerTeamForTournamentByPublicId,
+  leaveTeamFromTournamentByPublicId,
+  getTournamentRegistrationsByPublicId,
   getTournamentRegistrations,
 } from '../../api/tournamentApi';
 import { getMyTeams } from '../../api/teamApi';
@@ -32,7 +34,7 @@ function Field({ label, value }) {
 }
 
 function TournamentDetails() {
-  const { id } = useParams();
+  const { publicId } = useParams();
   const { user } = useAuth();
   const [tournament, setTournament] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -48,9 +50,44 @@ function TournamentDetails() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    getTournamentById(id).then(setTournament);
-    getTournamentRegistrations(id).then(setRegistrations);
-  }, [id]);
+    let ignore = false;
+
+    const loadTournament = async () => {
+      const byPublicId = await getTournamentByPublicId(publicId);
+      if (ignore) return;
+
+      if (byPublicId) {
+        setTournament(byPublicId);
+        const updatedRegistrations = await getTournamentRegistrationsByPublicId(byPublicId.publicId);
+        if (!ignore) {
+          setRegistrations(updatedRegistrations);
+        }
+        return;
+      }
+
+      const numericId = Number(publicId);
+      if (!Number.isFinite(numericId)) {
+        setTournament(null);
+        setRegistrations([]);
+        return;
+      }
+
+      const byId = await getTournamentById(numericId);
+      if (ignore) return;
+
+      setTournament(byId);
+      const updatedRegistrations = await getTournamentRegistrations(numericId);
+      if (!ignore) {
+        setRegistrations(updatedRegistrations);
+      }
+    };
+
+    loadTournament();
+
+    return () => {
+      ignore = true;
+    };
+  }, [publicId]);
 
   useEffect(() => {
     const status = String(tournament?.status || '').trim().toLowerCase();
@@ -101,12 +138,12 @@ function TournamentDetails() {
     setRegisterError('');
     setRegisterSuccess('');
     try {
-      await registerTeamForTournament(id, {
+      await registerTeamForTournamentByPublicId(tournament.publicId, {
         actorUserId: user?.id ?? null,
         actorEmail: user?.email ?? null,
         teamId: Number(selectedTeamId),
       });
-      const updated = await getTournamentRegistrations(id);
+      const updated = await getTournamentRegistrationsByPublicId(tournament.publicId);
       setRegistrations(updated);
       const teamName = myTeams.find((t) => String(t.id) === selectedTeamId)?.name ?? 'Your team';
       setRegisterSuccess(`${teamName} has been registered.`);
@@ -123,12 +160,12 @@ function TournamentDetails() {
     setRegisterError('');
     setRegisterSuccess('');
     try {
-      await leaveTeamFromTournament(id, {
+      await leaveTeamFromTournamentByPublicId(tournament.publicId, {
         actorUserId: user?.id ?? null,
         actorEmail: user?.email ?? null,
         teamId: Number(selectedTeamId),
       });
-      const updated = await getTournamentRegistrations(id);
+      const updated = await getTournamentRegistrationsByPublicId(tournament.publicId);
       setRegistrations(updated);
       const teamName = myTeams.find((t) => String(t.id) === selectedTeamId)?.name ?? 'Your team';
       setRegisterSuccess(`${teamName} has left this tournament.`);
@@ -143,9 +180,13 @@ function TournamentDetails() {
     return <p>There is no tournament entry available right now.</p>;
   }
 
+  const isOpenStatus = String(tournament?.status || '').trim().toLowerCase() === 'open';
+  if (!isOpenStatus) {
+    return <Navigate to="/tournaments" replace />;
+  }
+
   const spotsLeft = tournament.teamSlots != null ? tournament.teamSlots - registrations.length : null;
   const isAdminUser = Boolean(user?.isAdmin);
-  const isOpenStatus = String(tournament?.status || '').trim().toLowerCase() === 'open';
 
   const openTeamDetails = (team) => {
     if (!team?.teamId) {

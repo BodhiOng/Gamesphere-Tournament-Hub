@@ -49,6 +49,90 @@ export async function getTournamentById(id) {
   }
 }
 
+export async function getTournamentByPublicId(publicId) {
+  const normalizedPublicId = String(publicId || '').trim();
+  if (!normalizedPublicId) {
+    return null;
+  }
+
+  try {
+    const data = await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}`);
+    return normalizeTournament(data);
+  } catch {
+    try {
+      const tournaments = await getTournaments();
+      return tournaments.find((item) => String(item?.publicId || '').trim() === normalizedPublicId) || null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export async function getTournamentRegistrationsByPublicId(publicId) {
+  const normalizedPublicId = String(publicId || '').trim();
+  if (!normalizedPublicId) {
+    return [];
+  }
+
+  try {
+    const data = await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/registrations`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    const tournament = await getTournamentByPublicId(normalizedPublicId);
+    if (!tournament?.id) {
+      return [];
+    }
+
+    return getTournamentRegistrations(tournament.id);
+  }
+}
+
+export async function registerTeamForTournamentByPublicId(publicId, payload) {
+  const normalizedPublicId = String(publicId || '').trim();
+  const body = JSON.stringify({
+    actorUserId: payload.actorUserId ?? null,
+    actorEmail: payload.actorEmail ?? null,
+    teamId: payload.teamId,
+  });
+
+  try {
+    return await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/register`, {
+      method: 'POST',
+      body,
+    });
+  } catch {
+    const tournament = await getTournamentByPublicId(normalizedPublicId);
+    if (!tournament?.id) {
+      throw new Error('Tournament not found.');
+    }
+
+    return registerTeamForTournament(tournament.id, payload);
+  }
+}
+
+export async function leaveTeamFromTournamentByPublicId(publicId, payload) {
+  const normalizedPublicId = String(publicId || '').trim();
+  const body = JSON.stringify({
+    actorUserId: payload.actorUserId ?? null,
+    actorEmail: payload.actorEmail ?? null,
+    teamId: payload.teamId,
+  });
+
+  try {
+    return await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/leave`, {
+      method: 'POST',
+      body,
+    });
+  } catch {
+    const tournament = await getTournamentByPublicId(normalizedPublicId);
+    if (!tournament?.id) {
+      throw new Error('Tournament not found.');
+    }
+
+    return leaveTeamFromTournament(tournament.id, payload);
+  }
+}
+
 export async function createTournament(payload) {
   try {
     const data = await request('/api/tournament', {

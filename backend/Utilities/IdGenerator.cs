@@ -53,5 +53,17 @@ namespace Gamesphere.Utilities
 
             return $"TEAM-{new string(chars)}";
         }
+
+        public static string GenerateMatchResultPublicId(int suffixLength = 8)
+        {
+            var bytes = RandomNumberGenerator.GetBytes(suffixLength);
+            var chars = new char[suffixLength];
+            for (var i = 0; i < suffixLength; i++)
+            {
+                chars[i] = Alphabet[bytes[i] % Alphabet.Length];
+            }
+
+            return $"MRS-{new string(chars)}";
+        }
     }
 }

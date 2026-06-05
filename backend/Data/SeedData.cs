@@ -95,6 +95,7 @@ namespace Gamesphere.Data
 
         private static void ClearExistingData(AppDbContext ctx)
         {
+            ctx.Database.ExecuteSqlRaw("DELETE FROM \"MatchResults\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"LeaderboardEntry\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"TeamMembers\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"TeamJoinRequests\"");
@@ -140,8 +141,36 @@ namespace Gamesphere.Data
             var sharedSage = CreateUser(ctx, passwordHasher, "SharedSage", "sharedsage@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 5, 0, DateTimeKind.Utc));
             var teamSeeker = CreateUser(ctx, passwordHasher, "TeamSeeker", "teamseeker@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 10, 0, DateTimeKind.Utc));
             var loneScout = CreateUser(ctx, passwordHasher, "LoneScout", "lonescout@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 12, 0, DateTimeKind.Utc));
+            var crowdTeamLeads = new[]
+            {
+                CreateUser(ctx, passwordHasher, "CrimsonTide", "crimsontide@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 14, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "IronPulse", "ironpulse@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 16, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "SolarGlyph", "solarglyph@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 18, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "NeonForge", "neonforge@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 20, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "VantaHex", "vantahex@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 22, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "EchoShard", "echoshard@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 24, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "PulseDrift", "pulsedrift@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 26, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "OrbitNine", "orbitnine@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 28, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "ForgeBloom", "forgebloom@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 30, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "GlitchHalo", "glitchhalo@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 32, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "RuneStatic", "runestatic@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 34, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "AeroMatrix", "aeromatrix@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 36, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "ByteHarbor", "byteharbor@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 38, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "ShardEcho", "shardecho@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 40, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "NorthVector", "northvector@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 42, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "SilverLatch", "silverlatch@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 44, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "TwinSpark", "twinspark@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 46, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "MosaicCore", "mosaiccore@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 48, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "HyperQuill", "hyperquill@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 50, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "GammaHollow", "gammahollow@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 52, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "DriftNova", "driftnova@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 54, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "QuillStrike", "quillstrike@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 56, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "VectorBloom", "vectorbloom@example.com", SamplePassword, new DateTime(2026, 5, 2, 11, 58, 0, DateTimeKind.Utc)),
+                CreateUser(ctx, passwordHasher, "LumenArc", "lumenarc@example.com", SamplePassword, new DateTime(2026, 5, 2, 12, 0, 0, DateTimeKind.Utc))
+            };
 
             ctx.Users.AddRange(aceCaptain, pulseWave, frostAim, nullVector, driftPixel, staticRay, emberRush, haloStrike, novaByte, echoFrame, riftRunner, solsticeX, multiMike, sharedSage, teamSeeker, loneScout);
+            ctx.Users.AddRange(crowdTeamLeads);
             ctx.SaveChanges();
 
             var userByPublicId = new[]
@@ -161,7 +190,31 @@ namespace Gamesphere.Data
                 multiMike,
                 sharedSage,
                 teamSeeker,
-                loneScout
+                loneScout,
+                crowdTeamLeads[0],
+                crowdTeamLeads[1],
+                crowdTeamLeads[2],
+                crowdTeamLeads[3],
+                crowdTeamLeads[4],
+                crowdTeamLeads[5],
+                crowdTeamLeads[6],
+                crowdTeamLeads[7],
+                crowdTeamLeads[8],
+                crowdTeamLeads[9],
+                crowdTeamLeads[10],
+                crowdTeamLeads[11],
+                crowdTeamLeads[12],
+                crowdTeamLeads[13],
+                crowdTeamLeads[14],
+                crowdTeamLeads[15],
+                crowdTeamLeads[16],
+                crowdTeamLeads[17],
+                crowdTeamLeads[18],
+                crowdTeamLeads[19],
+                crowdTeamLeads[20],
+                crowdTeamLeads[21],
+                crowdTeamLeads[22],
+                crowdTeamLeads[23]
             }
             .ToDictionary(user => user.PublicId);
 
@@ -220,7 +273,22 @@ namespace Gamesphere.Data
                 "Apex Legends, Overwatch 2"
             );
 
+            var crowdTeams = crowdTeamLeads.Select((lead, index) => CreateTeam(
+                ctx,
+                $"Crowd Team {index + 1:00}",
+                lead.PublicId,
+                userByPublicId,
+                index % 2 == 0
+                    ? "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=300&q=60"
+                    : "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=300&q=60",
+                loremFiveParagraphs,
+                index % 3 == 0
+                    ? "Valorant, Apex Legends"
+                    : (index % 3 == 1 ? "League of Legends, Dota 2" : "Overwatch 2, Counter-Strike 2")
+            )).ToArray();
+
             ctx.Teams.AddRange(novaCore, quantumFive, arcSyndicate, velocityUnit, zenithForge, hyperionPulse);
+            ctx.Teams.AddRange(crowdTeams);
             ctx.SaveChanges();
 
             var teamByPublicId = new[]
@@ -232,6 +300,7 @@ namespace Gamesphere.Data
                 zenithForge,
                 hyperionPulse
             }
+            .Concat(crowdTeams)
             .ToDictionary(team => team.PublicId);
 
             var nonAdminUsers = new[]
@@ -260,7 +329,9 @@ namespace Gamesphere.Data
                 velocityUnit,
                 zenithForge,
                 hyperionPulse
-            };
+            }
+            .Concat(crowdTeams)
+            .ToArray();
 
             var seedMembershipStart = new DateTime(2026, 5, 2, 12, 0, 0, DateTimeKind.Utc);
             var memberships = nonAdminUsers
@@ -487,6 +558,52 @@ namespace Gamesphere.Data
                 .ToList();
 
             ctx.Registrations.AddRange(seededRegistrations);
+            ctx.SaveChanges();
+
+            var seedMatchResults = new[]
+            {
+                new MatchResult
+                {
+                    PublicId = IdGenerator.GenerateMatchResultPublicId(),
+                    TournamentPublicId = tournaments[0].PublicId,
+                    TeamAPublicId = allTeams[0].PublicId,
+                    TeamBPublicId = allTeams[1].PublicId,
+                    RoundNumber = 1,
+                    TeamAScore = 2,
+                    TeamBScore = 1,
+                    WinnerTeamPublicId = allTeams[0].PublicId,
+                    ReviewedByUserPublicId = admin.PublicId,
+                    CreatedAtUtc = new DateTime(2026, 5, 28, 20, 30, 0, DateTimeKind.Utc)
+                },
+                new MatchResult
+                {
+                    PublicId = IdGenerator.GenerateMatchResultPublicId(),
+                    TournamentPublicId = tournaments[1].PublicId,
+                    TeamAPublicId = allTeams[2].PublicId,
+                    TeamBPublicId = allTeams[3].PublicId,
+                    RoundNumber = 1,
+                    TeamAScore = 1,
+                    TeamBScore = 2,
+                    WinnerTeamPublicId = allTeams[3].PublicId,
+                    ReviewedByUserPublicId = admin.PublicId,
+                    CreatedAtUtc = new DateTime(2026, 6, 3, 18, 10, 0, DateTimeKind.Utc)
+                },
+                new MatchResult
+                {
+                    PublicId = IdGenerator.GenerateMatchResultPublicId(),
+                    TournamentPublicId = tournaments[2].PublicId,
+                    TeamAPublicId = allTeams[4].PublicId,
+                    TeamBPublicId = allTeams[5].PublicId,
+                    RoundNumber = 1,
+                    TeamAScore = 2,
+                    TeamBScore = 0,
+                    WinnerTeamPublicId = allTeams[4].PublicId,
+                    ReviewedByUserPublicId = admin.PublicId,
+                    CreatedAtUtc = new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc)
+                }
+            };
+
+            ctx.MatchResults.AddRange(seedMatchResults);
 
             var leaderboardOne = new Leaderboard
             {

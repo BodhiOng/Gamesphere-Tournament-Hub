@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { loginUser, registerUser } from '../api/authApi';
+import { loginUser, normalizeAuthUser, registerUser } from '../api/authApi';
 import { getCurrentUserProfile } from '../api/userApi';
 
 const AuthContext = createContext(null);
@@ -25,6 +25,10 @@ function areUsersEqual(left, right) {
     && (left.suspendedUntilUtc ?? null) === (right.suspendedUntilUtc ?? null);
 }
 
+function normalizeStoredUser(user) {
+  return normalizeAuthUser(user);
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -39,10 +43,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   const syncStoredUser = useCallback((nextUser) => {
+    const normalizedUser = normalizeStoredUser(nextUser);
     suspensionCheckToken.current += 1;
-    setUser(nextUser);
+    setUser(normalizedUser);
     try {
-      localStorage.setItem('gs_user', JSON.stringify(nextUser));
+      if (normalizedUser) {
+        localStorage.setItem('gs_user', JSON.stringify(normalizedUser));
+      } else {
+        localStorage.removeItem('gs_user');
+      }
     } catch {}
   }, []);
 
@@ -92,9 +101,11 @@ export function AuthProvider({ children }) {
     try {
       const raw = localStorage.getItem('gs_user');
       if (raw) {
-        const restoredUser = JSON.parse(raw);
+        const restoredUser = normalizeStoredUser(JSON.parse(raw));
         setUser(restoredUser);
-        void refreshSuspensionState(restoredUser);
+        if (restoredUser) {
+          void refreshSuspensionState(restoredUser);
+        }
       }
     } catch (e) {
       // ignore parse errors

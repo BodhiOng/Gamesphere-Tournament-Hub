@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   approveAccountRequest,
+  createMatchResult,
+  deleteMatchResult,
   deleteAccountRequest,
   deleteReportedAccount,
   getAccountRequests,
+  getMatchResultLookups,
+  getMatchResults,
   getReports,
   rejectAccountRequest,
   suspendReportedAccount,
+  updateMatchResult,
 } from '../../api/adminApi';
 import { createTournament, getTournaments, getTournamentById, updateTournament, deleteTournament } from '../../api/tournamentApi';
 import DeleteConfirm from '../../components/DeleteConfirm/DeleteConfirm';
@@ -15,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 const TOURNAMENTS_PER_PAGE = 10;
 const REQUESTS_PER_PAGE = 10;
 const REPORTS_PER_PAGE = 10;
+const MATCH_RESULTS_PER_PAGE = 10;
 
 function formatDateInputValue(iso) {
   if (!iso) return '';
@@ -35,6 +41,19 @@ function composeLocalDateTime(dateValue, timeValue) {
   const combined = new Date(`${dateValue}T${timeValue}`);
   if (Number.isNaN(combined.getTime())) return null;
   return combined.toISOString();
+}
+
+function formatRoundLabel(round, maxRounds) {
+  const roundNumber = Number(round);
+  if (!Number.isFinite(roundNumber) || roundNumber <= 0) {
+    return '-';
+  }
+
+  if (Number.isFinite(maxRounds) && maxRounds > 0 && roundNumber === maxRounds) {
+    return 'Final Round';
+  }
+
+  return `Round ${roundNumber}`;
 }
 
 const regionOptions = [
@@ -66,6 +85,15 @@ function AdminPanel() {
   const [reportActionBusy, setReportActionBusy] = useState('');
   const [reportSuspendUntil, setReportSuspendUntil] = useState({});
   const [selectedReport, setSelectedReport] = useState(null);
+  const [matchResults, setMatchResults] = useState([]);
+  const [matchResultsLoading, setMatchResultsLoading] = useState(false);
+  const [matchResultSearch, setMatchResultSearch] = useState('');
+  const [matchResultPage, setMatchResultPage] = useState(1);
+  const [matchResultEditorOpen, setMatchResultEditorOpen] = useState(false);
+  const [matchResultEditing, setMatchResultEditing] = useState(null);
+  const [matchResultDeleteTarget, setMatchResultDeleteTarget] = useState(null);
+  const [matchResultActionBusy, setMatchResultActionBusy] = useState('');
+  const [matchResultLookups, setMatchResultLookups] = useState({ tournaments: [], teams: [], registrations: [] });
 
   const truncateText = (value, maxLength = 140) => {
     const text = String(value || '').trim();
@@ -161,6 +189,27 @@ function AdminPanel() {
     }
   };
 
+  const loadMatchResults = async () => {
+    setMatchResultsLoading(true);
+    setError('');
+    try {
+      const [results, lookups] = await Promise.all([
+        getMatchResults(),
+        getMatchResultLookups(),
+      ]);
+      setMatchResults(Array.isArray(results) ? results : []);
+      setMatchResultLookups({
+        tournaments: Array.isArray(lookups?.tournaments) ? lookups.tournaments : [],
+        teams: Array.isArray(lookups?.teams) ? lookups.teams : [],
+        registrations: Array.isArray(lookups?.registrations) ? lookups.registrations : [],
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to load match results.');
+    } finally {
+      setMatchResultsLoading(false);
+    }
+  };
+
   const onModerateReport = async (reportId, action) => {
     setError('');
     const token = `${action}:${reportId}`;
@@ -194,6 +243,40 @@ function AdminPanel() {
       setError(err.message || 'Failed to moderate report.');
     } finally {
       setReportActionBusy('');
+    }
+  };
+
+  const onSaveMatchResult = async (payload, editingId = null) => {
+    setError('');
+    setMatchResultActionBusy(editingId ? `save:${editingId}` : 'create');
+    try {
+      if (editingId) {
+        await updateMatchResult(editingId, payload, user);
+      } else {
+        await createMatchResult(payload, user);
+      }
+
+      setMatchResultEditorOpen(false);
+      setMatchResultEditing(null);
+      await loadMatchResults();
+    } catch (err) {
+      throw err;
+    } finally {
+      setMatchResultActionBusy('');
+    }
+  };
+
+  const onDeleteMatchResult = async (id) => {
+    setError('');
+    setMatchResultActionBusy(`delete:${id}`);
+    try {
+      await deleteMatchResult(id);
+      setMatchResultDeleteTarget(null);
+      await loadMatchResults();
+    } catch (err) {
+      setError(err.message || 'Failed to delete match result.');
+    } finally {
+      setMatchResultActionBusy('');
     }
   };
 
@@ -404,6 +487,13 @@ function AdminPanel() {
   }, [active]);
 
   useEffect(() => {
+    if (active === 'update-matches') {
+      setMatchResultPage(1);
+      loadMatchResults();
+    }
+  }, [active]);
+
+  useEffect(() => {
     setRequestPage(1);
   }, [requestSearch, requestStatusFilter]);
 
@@ -449,11 +539,41 @@ function AdminPanel() {
     reportPage * REPORTS_PER_PAGE,
   );
 
+  const filteredMatchResults = matchResults.filter((result) => {
+    const query = matchResultSearch.trim().toLowerCase();
+    if (!query) {
+      return true;
+    }
+
+    return String(result?.publicId || result?.id || '').toLowerCase().includes(query)
+      || String(result?.tournamentName || result?.tournamentPublicId || '').toLowerCase().includes(query)
+      || String(result?.roundNumber || '').toLowerCase().includes(query)
+      || String(result?.teamAName || result?.teamAPublicId || '').toLowerCase().includes(query)
+      || String(result?.teamBName || result?.teamBPublicId || '').toLowerCase().includes(query)
+      || String(result?.winnerTeamName || result?.winnerTeamPublicId || '').toLowerCase().includes(query);
+  });
+
+  const totalMatchResultPages = Math.max(1, Math.ceil(filteredMatchResults.length / MATCH_RESULTS_PER_PAGE));
+  const paginatedMatchResults = filteredMatchResults.slice(
+    (matchResultPage - 1) * MATCH_RESULTS_PER_PAGE,
+    matchResultPage * MATCH_RESULTS_PER_PAGE,
+  );
+
   useEffect(() => {
     if (reportPage > totalReportPages) {
       setReportPage(totalReportPages);
     }
   }, [reportPage, totalReportPages]);
+
+  useEffect(() => {
+    if (matchResultPage > totalMatchResultPages) {
+      setMatchResultPage(totalMatchResultPages);
+    }
+  }, [matchResultPage, totalMatchResultPages]);
+
+  useEffect(() => {
+    setMatchResultPage(1);
+  }, [matchResultSearch]);
 
   return (
     <div className="admin-layout">
@@ -862,10 +982,120 @@ function AdminPanel() {
         {active === 'update-matches' && (
           <section id="update-matches" className="surface-card">
             <h3>Update match results</h3>
-            <p>Manually update match outcomes, correct scores, and resolve disputes.</p>
-            <div className="cta-row" style={{ marginTop: '1rem' }}>
-              <button type="button" className="primary-btn">Manage Matches</button>
+            <p>Manually create, edit, and remove recorded match outcomes.</p>
+
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.8rem', flexWrap: 'wrap' }}>
+              <input
+                type="search"
+                value={matchResultSearch}
+                onChange={(event) => setMatchResultSearch(event.target.value)}
+                placeholder="Search by match ID, tournament, round, team, or winner"
+                style={{ padding: '0.45rem 0.6rem', minWidth: '280px' }}
+              />
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => {
+                  setMatchResultEditing(null);
+                  setMatchResultEditorOpen(true);
+                }}
+              >
+                Create Match Result
+              </button>
             </div>
+
+            {matchResultsLoading ? <p style={{ marginTop: '0.8rem' }}>Loading match results...</p> : null}
+            {!matchResultsLoading && filteredMatchResults.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No match results match your filters.</p> : null}
+
+            {!matchResultsLoading && filteredMatchResults.length > 0 ? (
+              <div style={{ overflowX: 'auto', marginTop: '0.8rem' }}>
+                <table className="table-shell auth-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Tournament</th>
+                      <th>Round</th>
+                      <th>Matchup</th>
+                      <th>Score</th>
+                      <th>Winner</th>
+                      <th>Released</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedMatchResults.map((result) => {
+                      const scoreLabel = result.teamAScore != null && result.teamBScore != null
+                        ? `${result.teamAScore} - ${result.teamBScore}`
+                        : '-';
+
+                      return (
+                        <tr key={result.id}>
+                          <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{result.publicId || result.id}</td>
+                          <td>{result.tournamentName || result.tournamentPublicId || '-'}</td>
+                          <td>{formatRoundLabel(result.roundNumber, Math.max(1, Math.ceil(Math.log2(Math.max(2, Number(matchResultLookups.tournaments.find((tournament) => tournament.publicId === result.tournamentPublicId)?.teamSlots || 2))))))}</td>
+                          <td>{`${result.teamAName || result.teamAPublicId || '-'} vs ${result.teamBName || result.teamBPublicId || '-'}`}</td>
+                          <td>{scoreLabel}</td>
+                          <td>{result.winnerTeamName || result.winnerTeamPublicId || '-'}</td>
+                          <td>{result.createdAtUtc ? formatDate(result.createdAtUtc) : '-'}</td>
+                          <td>
+                            <div className="cta-row">
+                              <button
+                                type="button"
+                                className="ghost-btn"
+                                onClick={() => setMatchResultDeleteTarget(result)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <div className="admin-pagination-row">
+                  <p className="admin-pagination-summary">
+                    Showing {filteredMatchResults.length === 0 ? 0 : (matchResultPage - 1) * MATCH_RESULTS_PER_PAGE + 1}
+                    {' '}-{' '}
+                    {Math.min(matchResultPage * MATCH_RESULTS_PER_PAGE, filteredMatchResults.length)}
+                    {' '}of {filteredMatchResults.length}
+                  </p>
+                  <div className="admin-pagination-controls">
+                    <button type="button" className="ghost-btn" disabled={matchResultPage <= 1} onClick={() => setMatchResultPage((page) => Math.max(1, page - 1))}>Previous</button>
+                    <span>Page {matchResultPage} of {totalMatchResultPages}</span>
+                    <button type="button" className="ghost-btn" disabled={matchResultPage >= totalMatchResultPages} onClick={() => setMatchResultPage((page) => Math.min(totalMatchResultPages, page + 1))}>Next</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {matchResultEditorOpen ? (
+              <MatchResultEditor
+                initialValue={matchResultEditing}
+                lookups={matchResultLookups}
+                busy={matchResultActionBusy === (matchResultEditing ? `save:${matchResultEditing.id}` : 'create')}
+                onCancel={() => {
+                  setMatchResultEditorOpen(false);
+                  setMatchResultEditing(null);
+                }}
+                onSave={onSaveMatchResult}
+              />
+            ) : null}
+
+            <DeleteConfirm
+              open={!!matchResultDeleteTarget}
+              title={matchResultDeleteTarget ? `Delete match result: ${matchResultDeleteTarget.publicId || matchResultDeleteTarget.id}` : 'Delete match result'}
+              message={matchResultDeleteTarget ? 'This will permanently remove this match result entry. This action cannot be undone.' : ''}
+              details={matchResultDeleteTarget ? `${matchResultDeleteTarget.teamAName || '-'} vs ${matchResultDeleteTarget.teamBName || '-'}` : ''}
+              confirmLabel="Delete"
+              cancelLabel="Cancel"
+              onCancel={() => setMatchResultDeleteTarget(null)}
+              onConfirm={async () => {
+                if (!matchResultDeleteTarget) return;
+                await onDeleteMatchResult(matchResultDeleteTarget.id);
+              }}
+            />
           </section>
         )}
 
@@ -1056,6 +1286,194 @@ function AdminPanel() {
           </section>
         )}
       </main>
+    </div>
+  );
+}
+
+function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [], registrations: [] }, busy, onCancel, onSave }) {
+  const [error, setError] = useState('');
+  const [tournamentPublicId, setTournamentPublicId] = useState(initialValue?.tournamentPublicId || '');
+  const [roundNumber, setRoundNumber] = useState(initialValue?.roundNumber ?? '');
+  const [teamAPublicId, setTeamAPublicId] = useState(initialValue?.teamAPublicId || '');
+  const [teamBPublicId, setTeamBPublicId] = useState(initialValue?.teamBPublicId || '');
+  const [teamAScore, setTeamAScore] = useState(initialValue?.teamAScore ?? '');
+  const [teamBScore, setTeamBScore] = useState(initialValue?.teamBScore ?? '');
+  const [winnerTeamPublicId, setWinnerTeamPublicId] = useState(initialValue?.winnerTeamPublicId || '');
+  const tournaments = Array.isArray(lookups.tournaments) ? lookups.tournaments : [];
+  const teams = Array.isArray(lookups.teams) ? lookups.teams : [];
+  const registrations = Array.isArray(lookups.registrations) ? lookups.registrations : [];
+  const selectedTournament = tournaments.find((tournament) => tournament.publicId === tournamentPublicId) || null;
+  const teamSlotCount = Number(selectedTournament?.teamSlots ?? 2);
+  const maxRounds = Math.max(1, Math.ceil(Math.log2(Math.max(2, Number.isFinite(teamSlotCount) ? teamSlotCount : 2))));
+  const roundOptions = Array.from({ length: maxRounds }, (_, index) => index + 1);
+  const registeredTeamPublicIds = useMemo(() => {
+    if (!tournamentPublicId) {
+      return new Set();
+    }
+
+    return new Set(
+      registrations
+        .filter((registration) => String(registration?.tournamentId || '') === tournamentPublicId)
+        .map((registration) => String(registration?.teamId || '').trim())
+        .filter(Boolean),
+    );
+  }, [registrations, tournamentPublicId]);
+  const registeredTeams = useMemo(() => {
+    const allowedTeamIds = registeredTeamPublicIds;
+    if (!allowedTeamIds.size) {
+      return [];
+    }
+
+    return teams.filter((team) => allowedTeamIds.has(String(team?.publicId || '').trim()));
+  }, [teams, registeredTeamPublicIds]);
+  const teamBOptions = useMemo(() => {
+    if (!teamAPublicId) {
+      return registeredTeams;
+    }
+
+    return registeredTeams.filter((team) => team.publicId !== teamAPublicId);
+  }, [registeredTeams, teamAPublicId]);
+
+  useEffect(() => {
+    if (teamAPublicId && !registeredTeamPublicIds.has(teamAPublicId)) {
+      setTeamAPublicId('');
+    }
+    if (teamBPublicId && !registeredTeamPublicIds.has(teamBPublicId)) {
+      setTeamBPublicId('');
+    }
+    if (winnerTeamPublicId && !registeredTeamPublicIds.has(winnerTeamPublicId)) {
+      setWinnerTeamPublicId('');
+    }
+  }, [registeredTeamPublicIds, teamAPublicId, teamBPublicId, winnerTeamPublicId]);
+
+  useEffect(() => {
+    if (teamAPublicId && teamBPublicId && teamAPublicId === teamBPublicId) {
+      setTeamBPublicId('');
+    }
+  }, [teamAPublicId, teamBPublicId]);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    if (!tournamentPublicId || !roundNumber || !teamAPublicId || !teamBPublicId) {
+      setError('Tournament, round, and both teams are required.');
+      return;
+    }
+
+    try {
+      await onSave({
+        tournamentPublicId,
+        roundNumber: Number(roundNumber),
+        teamAPublicId,
+        teamBPublicId,
+        teamAScore: teamAScore === '' ? null : Number(teamAScore),
+        teamBScore: teamBScore === '' ? null : Number(teamBScore),
+        winnerTeamPublicId: winnerTeamPublicId || null,
+      }, initialValue?.id ?? null);
+    } catch (err) {
+      setError(err.message || 'Failed to save match result.');
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'start center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1400 }}>
+      <div style={{ width: 'min(980px, 96%)' }}>
+        <section className="surface-card tournament-form-modal" style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>{initialValue ? 'Edit match result' : 'Create match result'}</h3>
+            <button type="button" className="ghost-btn" onClick={onCancel}>Cancel</button>
+          </div>
+
+          {tournaments.length === 0 ? (
+            <p style={{ marginTop: '0.9rem' }}>Loading tournament options...</p>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="tournament-modal-form" style={{ marginTop: '1rem' }}>
+            <label>
+              Tournament
+              <select
+                value={tournamentPublicId}
+                onChange={(event) => {
+                  setTournamentPublicId(event.target.value);
+                  setRoundNumber('');
+                }}
+                required
+              >
+                <option value="">Select tournament</option>
+                {tournaments.map((tournament) => (
+                  <option key={tournament.publicId || tournament.id} value={tournament.publicId}>
+                    {tournament.name} ({tournament.publicId})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Round
+              <select value={roundNumber} onChange={(event) => setRoundNumber(event.target.value)} required disabled={!tournamentPublicId}>
+                <option value="">{tournamentPublicId ? 'Select round' : 'Select tournament first'}</option>
+                {roundOptions.map((round) => (
+                  <option key={round} value={round}>
+                    {formatRoundLabel(round, maxRounds)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Team A
+              <select value={teamAPublicId} onChange={(event) => setTeamAPublicId(event.target.value)} required disabled={!tournamentPublicId || registeredTeams.length === 0}>
+                <option value="">Select Team A</option>
+                {registeredTeams.map((team) => (
+                  <option key={team.publicId || team.id} value={team.publicId}>
+                    {team.name} ({team.publicId})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Team B
+              <select value={teamBPublicId} onChange={(event) => setTeamBPublicId(event.target.value)} required disabled={!tournamentPublicId || registeredTeams.length === 0}>
+                <option value="">Select Team B</option>
+                {teamBOptions.map((team) => (
+                  <option key={team.publicId || team.id} value={team.publicId}>
+                    {team.name} ({team.publicId})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Team A Score
+              <input type="number" min="0" value={teamAScore} onChange={(event) => setTeamAScore(event.target.value)} required />
+            </label>
+
+            <label>
+              Team B Score
+              <input type="number" min="0" value={teamBScore} onChange={(event) => setTeamBScore(event.target.value)} required />
+            </label>
+
+            <label>
+              Winner
+              <select value={winnerTeamPublicId} onChange={(event) => setWinnerTeamPublicId(event.target.value)} required disabled={!teamAPublicId && !teamBPublicId}>
+                <option value="">Select winner</option>
+                {teamAPublicId ? <option value={teamAPublicId}>Team A</option> : null}
+                {teamBPublicId ? <option value={teamBPublicId}>Team B</option> : null}
+              </select>
+            </label>
+
+            {error ? <p className="error-text field-full">{error}</p> : null}
+
+            <div className="cta-row field-full">
+              <button type="submit" className="primary-btn" disabled={busy}>
+                {busy ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }
