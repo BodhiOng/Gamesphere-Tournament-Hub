@@ -15,9 +15,8 @@ namespace Gamesphere.Models
         public int TeamId { get; set; }
         public int RequesterUserId { get; set; }
         public TeamJoinRequestStatus Status { get; set; }
-        public string? Message { get; set; }
         public DateTime RequestedAt { get; set; }
         public DateTime? ReviewedAt { get; set; }
-        public int? ReviewedByUserId { get; set; }
+        public string? ReviewedByUserPublicId { get; set; }
     }
 }

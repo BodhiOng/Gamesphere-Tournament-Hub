@@ -90,7 +90,8 @@ namespace Gamesphere.Data
             modelBuilder.Entity<TeamJoinRequest>()
                 .HasOne<User>()
                 .WithMany()
-                .HasForeignKey(item => item.ReviewedByUserId)
+                .HasForeignKey(item => item.ReviewedByUserPublicId)
+                .HasPrincipalKey(item => item.PublicId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Report>()

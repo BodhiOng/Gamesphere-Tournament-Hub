@@ -315,7 +315,6 @@ namespace Gamesphere.Data
                     TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId),
                     RequesterUserId = ResolveUserId(teamSeeker.PublicId, userByPublicId),
                     Status = TeamJoinRequestStatus.Pending,
-                    Message = "Looking to scrim regularly and join your League roster.",
                     RequestedAt = new DateTime(2026, 5, 2, 16, 0, 0, DateTimeKind.Utc)
                 },
                 new TeamJoinRequest
@@ -323,10 +322,9 @@ namespace Gamesphere.Data
                     TeamId = ResolveTeamId(velocityUnit.PublicId, teamByPublicId),
                     RequesterUserId = ResolveUserId(loneScout.PublicId, userByPublicId),
                     Status = TeamJoinRequestStatus.Rejected,
-                    Message = "Would like to trial for support role.",
                     RequestedAt = new DateTime(2026, 5, 2, 16, 10, 0, DateTimeKind.Utc),
                     ReviewedAt = new DateTime(2026, 5, 2, 16, 30, 0, DateTimeKind.Utc),
-                    ReviewedByUserId = ResolveUserId(emberRush.PublicId, userByPublicId)
+                    ReviewedByUserPublicId = emberRush.PublicId
                 }
             );
 

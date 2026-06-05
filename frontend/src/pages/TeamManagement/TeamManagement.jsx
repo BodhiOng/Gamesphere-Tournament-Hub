@@ -983,7 +983,16 @@ function TeamManagement() {
       return [];
     }
 
-    return activeDiscoverTeam.members;
+    return [...activeDiscoverTeam.members].sort((left, right) => {
+      const leftCaptain = String(left?.role || '').toLowerCase() === 'captain';
+      const rightCaptain = String(right?.role || '').toLowerCase() === 'captain';
+
+      if (leftCaptain !== rightCaptain) {
+        return leftCaptain ? -1 : 1;
+      }
+
+      return String(left?.username || '').localeCompare(String(right?.username || ''));
+    });
   }, [activeDiscoverTeam]);
 
   const discoverRosterTotalPages = Math.max(1, Math.ceil(discoverRosterMembers.length / DISCOVER_ROSTER_PAGE_SIZE));

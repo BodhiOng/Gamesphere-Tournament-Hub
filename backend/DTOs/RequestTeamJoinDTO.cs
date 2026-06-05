@@ -8,6 +8,5 @@ namespace Gamesphere.DTOs
         public int? TeamId { get; set; }
         public string? TeamPublicId { get; set; }
         public string? TeamName { get; set; }
-        public string? Message { get; set; }
     }
 }

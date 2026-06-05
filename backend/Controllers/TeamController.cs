@@ -113,7 +113,7 @@ namespace Gamesphere.Controllers
         [HttpPost("profile")]
         public IActionResult UpdateTeamProfile([FromBody] UpdateTeamProfileDTO dto)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
+            var actor = ResolveActor(dto.ActorUserPublicId, dto.ActorEmail);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
@@ -564,7 +564,6 @@ namespace Gamesphere.Controllers
                 TeamId = team.Id,
                 RequesterUserId = actor.Id,
                 Status = TeamJoinRequestStatus.Pending,
-                Message = NormalizeOptionalText(dto.Message),
                 RequestedAt = System.DateTime.UtcNow
             });
 
@@ -666,7 +665,6 @@ namespace Gamesphere.Controllers
                         requesterUserPublicId = user.PublicId,
                         requesterUsername = user.Username,
                         requesterEmail = user.Email,
-                        request.Message,
                         request.RequestedAt,
                         status = request.Status.ToString()
                     }
@@ -882,7 +880,7 @@ namespace Gamesphere.Controllers
 
         private IActionResult ReviewJoinRequest(ReviewTeamJoinRequestDTO dto, TeamJoinRequestStatus status)
         {
-            var actor = ResolveActor(dto.ActorUserId, dto.ActorEmail, dto.ActorUserPublicId);
+            var actor = ResolveActor(dto.ActorUserPublicId, dto.ActorEmail);
             if (actor == null)
             {
                 return NotFound("Acting user not found.");
@@ -913,7 +911,7 @@ namespace Gamesphere.Controllers
 
             request.Status = status;
             request.ReviewedAt = System.DateTime.UtcNow;
-            request.ReviewedByUserId = actor.Id;
+            request.ReviewedByUserPublicId = actor.PublicId;
 
             if (status == TeamJoinRequestStatus.Approved)
             {
@@ -1101,6 +1099,11 @@ namespace Gamesphere.Controllers
             }
 
             return actor;
+        }
+
+        private User? ResolveActor(string? userPublicId, string? email)
+        {
+            return ResolveActor(null, email, userPublicId);
         }
 
         private Team? ResolveActorTeam(User actor, int? requestedTeamId, string? requestedTeamPublicId = null)
