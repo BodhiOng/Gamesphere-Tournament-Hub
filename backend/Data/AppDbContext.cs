@@ -11,7 +11,6 @@ namespace Gamesphere.Data
         public DbSet<Team> Teams => Set<Team>();
         public DbSet<Tournament> Tournaments => Set<Tournament>();
         public DbSet<Registration> Registrations => Set<Registration>();
-        public DbSet<Leaderboard> Leaderboards => Set<Leaderboard>();
         public DbSet<AccountRequest> AccountRequests => Set<AccountRequest>();
         public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
         public DbSet<TeamJoinRequest> TeamJoinRequests => Set<TeamJoinRequest>();

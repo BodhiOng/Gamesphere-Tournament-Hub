@@ -82,7 +82,7 @@ namespace Gamesphere.Data
         {
             try
             {
-                ctx.Database.ExecuteSqlRaw("SELECT 1 FROM \"Leaderboards\" LIMIT 1");
+                ctx.Database.ExecuteSqlRaw("SELECT 1 FROM \"MatchResults\" LIMIT 1");
             }
             catch
             {
@@ -96,14 +96,12 @@ namespace Gamesphere.Data
         private static void ClearExistingData(AppDbContext ctx)
         {
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"MatchResults\"");
-            ctx.Database.ExecuteSqlRaw("DELETE FROM \"LeaderboardEntry\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"TeamMembers\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"TeamJoinRequests\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"Registrations\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"AccountRequests\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"Users\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"Teams\"");
-            ctx.Database.ExecuteSqlRaw("DELETE FROM \"Leaderboards\"");
             ctx.Database.ExecuteSqlRaw("DELETE FROM \"Tournaments\"");
         }
 
@@ -543,8 +541,6 @@ namespace Gamesphere.Data
             ctx.Tournaments.AddRange(tournaments);
             ctx.SaveChanges();
 
-            var tournamentByPublicId = tournaments.ToDictionary(tournament => tournament.PublicId);
-
             var seededRegistrations = tournaments
                 .SelectMany(
                     (tournament, tournamentIndex) => allTeams.Select(
@@ -560,114 +556,77 @@ namespace Gamesphere.Data
             ctx.Registrations.AddRange(seededRegistrations);
             ctx.SaveChanges();
 
-            var seedMatchResults = new[]
+            var leaderboardTournamentIds = tournaments
+                .Where(tournament => string.Equals(tournament.Status, "Live", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(tournament.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                .Select(tournament => tournament.PublicId)
+                .Distinct()
+                .Take(20)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var seededMatchResults = new List<MatchResult>();
+            var targetTournament = tournaments
+                .FirstOrDefault(tournament => leaderboardTournamentIds.Contains(tournament.PublicId) && string.Equals(tournament.Status, "Live", StringComparison.OrdinalIgnoreCase))
+                ?? tournaments.FirstOrDefault(tournament => leaderboardTournamentIds.Contains(tournament.PublicId));
+
+            if (targetTournament != null)
             {
-                new MatchResult
+                var baseTime = targetTournament.StartDate == default
+                    ? new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc)
+                    : targetTournament.StartDate;
+                var game = targetTournament.Game ?? string.Empty;
+
+                for (var resultIndex = 0; resultIndex < 100; resultIndex++)
                 {
-                    PublicId = IdGenerator.GenerateMatchResultPublicId(),
-                    TournamentPublicId = tournaments[0].PublicId,
-                    TeamAPublicId = allTeams[0].PublicId,
-                    TeamBPublicId = allTeams[1].PublicId,
-                    RoundNumber = 1,
-                    TeamAScore = 2,
-                    TeamBScore = 1,
-                    WinnerTeamPublicId = allTeams[0].PublicId,
-                    ReviewedByUserPublicId = admin.PublicId,
-                    CreatedAtUtc = new DateTime(2026, 5, 28, 20, 30, 0, DateTimeKind.Utc)
-                },
-                new MatchResult
-                {
-                    PublicId = IdGenerator.GenerateMatchResultPublicId(),
-                    TournamentPublicId = tournaments[1].PublicId,
-                    TeamAPublicId = allTeams[2].PublicId,
-                    TeamBPublicId = allTeams[3].PublicId,
-                    RoundNumber = 1,
-                    TeamAScore = 1,
-                    TeamBScore = 2,
-                    WinnerTeamPublicId = allTeams[3].PublicId,
-                    ReviewedByUserPublicId = admin.PublicId,
-                    CreatedAtUtc = new DateTime(2026, 6, 3, 18, 10, 0, DateTimeKind.Utc)
-                },
-                new MatchResult
-                {
-                    PublicId = IdGenerator.GenerateMatchResultPublicId(),
-                    TournamentPublicId = tournaments[2].PublicId,
-                    TeamAPublicId = allTeams[4].PublicId,
-                    TeamBPublicId = allTeams[5].PublicId,
-                    RoundNumber = 1,
-                    TeamAScore = 2,
-                    TeamBScore = 0,
-                    WinnerTeamPublicId = allTeams[4].PublicId,
-                    ReviewedByUserPublicId = admin.PublicId,
-                    CreatedAtUtc = new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc)
+                    var teamStart = (resultIndex * 2) % allTeams.Length;
+                    var teamA = allTeams[teamStart].PublicId;
+                    var teamB = allTeams[(teamStart + 1) % allTeams.Length].PublicId;
+                    if (teamA == teamB)
+                    {
+                        teamB = allTeams[(teamStart + 2) % allTeams.Length].PublicId;
+                    }
+
+                    var roundNumber = resultIndex + 1;
+                    int teamAScore;
+                    int teamBScore;
+
+                    if (string.Equals(game, "Valorant", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(game, "Counter-Strike 2", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(game, "Rainbow Six Siege", StringComparison.OrdinalIgnoreCase))
+                    {
+                        teamAScore = 13 - (resultIndex % 4);
+                        teamBScore = 8 + (resultIndex % 4);
+                    }
+                    else if (string.Equals(game, "Apex Legends", StringComparison.OrdinalIgnoreCase))
+                    {
+                        teamAScore = 18 + (resultIndex % 7);
+                        teamBScore = 10 + (resultIndex % 6);
+                    }
+                    else
+                    {
+                        teamAScore = 2 + (resultIndex % 2);
+                        teamBScore = 1 + ((resultIndex + 1) % 2);
+                    }
+
+                    var winnerTeamPublicId = teamAScore >= teamBScore ? teamA : teamB;
+
+                    seededMatchResults.Add(new MatchResult
+                    {
+                        PublicId = IdGenerator.GenerateMatchResultPublicId(),
+                        TournamentPublicId = targetTournament.PublicId,
+                        TeamAPublicId = teamA,
+                        TeamBPublicId = teamB,
+                        RoundNumber = roundNumber,
+                        TeamAScore = teamAScore,
+                        TeamBScore = teamBScore,
+                        WinnerTeamPublicId = winnerTeamPublicId,
+                        ReviewedByUserPublicId = admin.PublicId,
+                        CreatedAtUtc = baseTime.AddMinutes((resultIndex + 1) * 12)
+                    });
                 }
-            };
+            }
 
-            ctx.MatchResults.AddRange(seedMatchResults);
-
-            var leaderboardOne = new Leaderboard
-            {
-                TournamentId = ResolveTournamentId(tournaments[0].PublicId, tournamentByPublicId),
-                Entries = new System.Collections.Generic.List<LeaderboardEntry>
-                {
-                    new LeaderboardEntry { TeamId = ResolveTeamId(novaCore.PublicId, teamByPublicId), Rank = 1, Points = 42 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(quantumFive.PublicId, teamByPublicId), Rank = 2, Points = 36 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId), Rank = 3, Points = 28 }
-                }
-            };
-
-            var leaderboardTwo = new Leaderboard
-            {
-                TournamentId = ResolveTournamentId(tournaments[1].PublicId, tournamentByPublicId),
-                Entries = new System.Collections.Generic.List<LeaderboardEntry>
-                {
-                    new LeaderboardEntry { TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId), Rank = 1, Points = 39 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(velocityUnit.PublicId, teamByPublicId), Rank = 2, Points = 33 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(hyperionPulse.PublicId, teamByPublicId), Rank = 3, Points = 27 }
-                }
-            };
-
-            var leaderboardThree = new Leaderboard
-            {
-                TournamentId = ResolveTournamentId(tournaments[2].PublicId, tournamentByPublicId),
-                Entries = new System.Collections.Generic.List<LeaderboardEntry>
-                {
-                    new LeaderboardEntry { TeamId = ResolveTeamId(zenithForge.PublicId, teamByPublicId), Rank = 1, Points = 45 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(hyperionPulse.PublicId, teamByPublicId), Rank = 2, Points = 41 }
-                }
-            };
-
-            var leaderboardFour = new Leaderboard
-            {
-                TournamentId = ResolveTournamentId(tournaments[3].PublicId, tournamentByPublicId),
-                Entries = new System.Collections.Generic.List<LeaderboardEntry>
-                {
-                    new LeaderboardEntry { TeamId = ResolveTeamId(velocityUnit.PublicId, teamByPublicId), Rank = 1, Points = 50 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(quantumFive.PublicId, teamByPublicId), Rank = 2, Points = 44 }
-                }
-            };
-
-            var leaderboardFive = new Leaderboard
-            {
-                TournamentId = ResolveTournamentId(tournaments[4].PublicId, tournamentByPublicId),
-                Entries = new System.Collections.Generic.List<LeaderboardEntry>
-                {
-                    new LeaderboardEntry { TeamId = ResolveTeamId(hyperionPulse.PublicId, teamByPublicId), Rank = 1, Points = 38 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(novaCore.PublicId, teamByPublicId), Rank = 2, Points = 31 }
-                }
-            };
-
-            var leaderboardSix = new Leaderboard
-            {
-                TournamentId = ResolveTournamentId(tournaments[5].PublicId, tournamentByPublicId),
-                Entries = new System.Collections.Generic.List<LeaderboardEntry>
-                {
-                    new LeaderboardEntry { TeamId = ResolveTeamId(arcSyndicate.PublicId, teamByPublicId), Rank = 1, Points = 47 },
-                    new LeaderboardEntry { TeamId = ResolveTeamId(zenithForge.PublicId, teamByPublicId), Rank = 2, Points = 43 }
-                }
-            };
-
-            ctx.Leaderboards.AddRange(leaderboardOne, leaderboardTwo, leaderboardThree, leaderboardFour, leaderboardFive, leaderboardSix);
+            ctx.MatchResults.AddRange(seededMatchResults);
             ctx.SaveChanges();
         }
 
@@ -724,16 +683,6 @@ namespace Gamesphere.Data
             }
 
             return team.Id;
-        }
-
-        private static int ResolveTournamentId(string publicId, IReadOnlyDictionary<string, Tournament> tournamentByPublicId)
-        {
-            if (!tournamentByPublicId.TryGetValue(publicId, out var tournament))
-            {
-                throw new InvalidOperationException($"Tournament with PublicId '{publicId}' was not found during seed mapping.");
-            }
-
-            return tournament.Id;
         }
 
         private static string GenerateUniqueUserPublicId(AppDbContext ctx)

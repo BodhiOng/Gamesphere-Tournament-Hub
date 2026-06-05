@@ -137,6 +137,15 @@ function Profile() {
 
         <form onSubmit={onSubmit} style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem', maxWidth: '460px' }}>
           <label>
+            Public ID
+            <input
+              value={profile?.publicId || user.publicId || ''}
+              readOnly
+              aria-readonly="true"
+            />
+          </label>
+
+          <label>
             Username
             <input
               name="username"

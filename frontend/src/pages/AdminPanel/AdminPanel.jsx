@@ -1377,7 +1377,7 @@ function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'start center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1400 }}>
+    <div style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', padding: '1rem', overflowY: 'auto', background: 'rgba(2,6,12,0.55)', zIndex: 1400 }}>
       <div style={{ width: 'min(980px, 96%)' }}>
         <section className="surface-card tournament-form-modal" style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

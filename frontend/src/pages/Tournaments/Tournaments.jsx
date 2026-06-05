@@ -118,7 +118,7 @@ function Tournaments() {
 
   return (
     <section className="tournaments-page">
-      <div className="surface-card filter-grid tournaments-filter-grid">
+      <div className="surface-card filter-grid tournaments-filter-grid leaderboard-toolbar">
         <input
           name="search"
           placeholder="Search tournaments"

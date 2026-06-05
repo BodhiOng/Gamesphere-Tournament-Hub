@@ -211,6 +211,141 @@ button {
   padding: 0.9rem;
 }
 
+.match-result-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.leaderboard-toolbar {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.tournaments-page .surface-card.leaderboard-toolbar {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.leaderboard-search-input {
+  width: 100%;
+}
+
+.leaderboard-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.leaderboard-filter-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.leaderboard-filter-field span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.match-result-item {
+  display: grid;
+  gap: 0.65rem;
+  cursor: default;
+  padding: 1.15rem 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(16, 42, 76, 0.32), rgba(10, 29, 54, 0.12)),
+    var(--panel);
+}
+
+.match-result-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(147, 194, 255, 0.34);
+}
+
+.match-result-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.match-result-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.match-result-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.match-result-item-header h3 {
+  font-size: 1.35rem;
+  line-height: 1.05;
+}
+
+.match-result-item-main {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.match-result-item-actions {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 0.45rem;
+}
+
+.match-result-meta-chips {
+  gap: 0.45rem;
+}
+
+.match-result-count-pill {
+  background: rgba(27, 200, 166, 0.16);
+}
+
+.match-result-item-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  color: var(--ink);
+}
+
+.match-result-item-meta span {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(147, 194, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(7, 22, 42, 0.52);
+}
+
+.match-result-item-meta strong {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.match-result-item-meta em {
+  color: var(--ink);
+  font-style: normal;
+  font-size: 0.96rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .grid {
   display: grid;
   gap: 1rem;
@@ -1704,6 +1839,52 @@ button {
   justify-self: end;
 }
 
+.leaderboard-modal {
+  width: min(1120px, 100%);
+}
+
+.leaderboard-modal-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.leaderboard-modal-heading {
+  min-width: 0;
+}
+
+.leaderboard-modal-heading .tournament-modal-public-id {
+  justify-self: start;
+  margin-top: 0.3rem;
+}
+
+.leaderboard-modal-meta-grid .tournament-modal-meta-item dd {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+}
+
+.leaderboard-modal-results {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.leaderboard-modal-results-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.leaderboard-modal-results-head h4 {
+  margin: 0;
+}
+
+.leaderboard-modal-results-head p {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .tournament-modal-grid {
   margin-top: 0.9rem;
   display: grid;
@@ -1830,6 +2011,30 @@ select:focus {
 
 .table-shell {
   overflow-x: auto;
+}
+
+.leaderboard-results-shell {
+  border: 1px solid rgba(147, 194, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(7, 22, 42, 0.6);
+}
+
+.leaderboard-results-table th,
+.leaderboard-results-table td {
+  padding: 0.8rem 0.85rem;
+  vertical-align: top;
+}
+
+.leaderboard-results-table th {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(147, 194, 255, 0.04);
+}
+
+.leaderboard-results-table tbody tr:hover td {
+  background: rgba(147, 194, 255, 0.05);
 }
 
 .roster-toolbar {
@@ -2301,10 +2506,64 @@ td {
   .tournament-modal-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .match-result-item-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .match-result-item-header {
+    flex-direction: column;
+  }
+
+  .match-result-item-actions {
+    width: 100%;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    justify-items: stretch;
+  }
+
+  .match-result-item-actions .ghost-btn {
+    justify-content: center;
+  }
+
+  .leaderboard-filter-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 520px) {
   .tournament-modal-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .match-result-item {
+    padding: 1rem;
+  }
+
+  .match-result-item-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .match-result-item-actions {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .match-result-count-pill {
+    justify-self: start;
+  }
+
+  .leaderboard-modal-head {
+    grid-template-columns: 1fr;
+  }
+
+  .tournament-modal-head .ghost-btn {
+    justify-self: start;
+  }
+
+  .leaderboard-results-table th,
+  .leaderboard-results-table td {
+    padding: 0.7rem;
   }
 }

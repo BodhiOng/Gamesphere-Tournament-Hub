@@ -33,3 +33,54 @@ export async function getLeaderboard() {
     return mockLeaderboardRows;
   }
 }
+
+function normalizeMatchResultFeedItem(item, index) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const fallbackId = `match-${index}`;
+  return {
+    id: item.id ?? fallbackId,
+    publicId: item.publicId ?? fallbackId,
+    roundNumber: item.roundNumber ?? null,
+    teamAScore: item.teamAScore ?? null,
+    teamBScore: item.teamBScore ?? null,
+    createdAtUtc: item.createdAtUtc ?? null,
+    tournament: {
+      id: item.tournament?.id ?? null,
+      publicId: item.tournament?.publicId ?? '',
+      name: item.tournament?.name ?? 'Unknown tournament',
+      status: item.tournament?.status ?? '',
+      game: item.tournament?.game ?? '',
+      region: item.tournament?.region ?? '',
+      startDate: item.tournament?.startDate ?? null,
+    },
+    teamA: {
+      id: item.teamA?.id ?? null,
+      publicId: item.teamA?.publicId ?? '',
+      name: item.teamA?.name ?? 'Team A',
+    },
+    teamB: {
+      id: item.teamB?.id ?? null,
+      publicId: item.teamB?.publicId ?? '',
+      name: item.teamB?.name ?? 'Team B',
+    },
+    winner: item.winner
+      ? {
+          id: item.winner.id ?? null,
+          publicId: item.winner.publicId ?? '',
+          name: item.winner.name ?? 'Winner',
+        }
+      : null,
+  };
+}
+
+export async function getPublicMatchResultFeed() {
+  try {
+    const data = await request('/api/leaderboard/match-results');
+    return Array.isArray(data) ? data.map(normalizeMatchResultFeedItem).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}

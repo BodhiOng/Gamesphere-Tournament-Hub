@@ -60,49 +60,6 @@ namespace Gamesphere.Migrations
                     b.ToTable("AccountRequests");
                 });
 
-            modelBuilder.Entity("Gamesphere.Models.Leaderboard", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("TournamentId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Leaderboards");
-                });
-
-            modelBuilder.Entity("Gamesphere.Models.LeaderboardEntry", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("LeaderboardId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Points")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Rank")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TeamId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LeaderboardId");
-
-                    b.ToTable("LeaderboardEntry");
-                });
-
             modelBuilder.Entity("Gamesphere.Models.MatchResult", b =>
                 {
                     b.Property<int>("Id")
@@ -441,13 +398,6 @@ namespace Gamesphere.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Gamesphere.Models.LeaderboardEntry", b =>
-                {
-                    b.HasOne("Gamesphere.Models.Leaderboard", null)
-                        .WithMany("Entries")
-                        .HasForeignKey("LeaderboardId");
-                });
-
             modelBuilder.Entity("Gamesphere.Models.MatchResult", b =>
                 {
                     b.HasOne("Gamesphere.Models.User", null)
@@ -545,11 +495,6 @@ namespace Gamesphere.Migrations
                     b.Navigation("Team");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Gamesphere.Models.Leaderboard", b =>
-                {
-                    b.Navigation("Entries");
                 });
 
             modelBuilder.Entity("Gamesphere.Models.Team", b =>
