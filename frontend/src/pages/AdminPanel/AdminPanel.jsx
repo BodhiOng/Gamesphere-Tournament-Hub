@@ -621,46 +621,48 @@ function AdminPanel() {
               {!tLoading && sortedTournaments.length === 0 && <p>{searchTerm || tournamentGameFilter !== 'all' || tournamentStatusFilter !== 'all' ? 'No tournaments match your filters.' : noTournamentsMessage}</p>}
 
               {!tLoading && sortedTournaments.length > 0 && (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="table-shell auth-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Game</th>
-                        <th>Start</th>
-                        <th>Slots</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedTournaments.map((t) => (
-                        <tr key={t.id}>
-                          <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{t.publicId || t.id}</td>
-                          <td>{t.name}</td>
-                          <td>{t.game || '-'}</td>
-                          <td>{formatDate(t.startDate)}</td>
-                          <td>{t.teamSlots ?? t.teamSlots === 0 ? t.teamSlots : (t.teamSlots ?? t.teamSlots)}</td>
-                          <td>{t.status ?? '-'}</td>
-                          <td>
-                            <div className="cta-row">
-                              <button type="button" className="ghost-btn" onClick={async () => { const d = await getTournamentById(t.id); setSelected(d); }}>View</button>
-                              <button type="button" className="primary-btn" onClick={() => setEditingId(t.id)}>Edit</button>
-                              <button type="button" className="ghost-btn" onClick={async () => {
-                                try {
-                                  const details = await getTournamentById(t.id);
-                                  setDeleteTarget({ id: t.id, publicId: details.publicId || t.publicId || t.id, name: t.name, teamsCount: details.teamsCount });
-                                } catch (err) {
-                                  setTError(err.message || 'Failed to load details');
-                                }
-                              }}>Delete</button>
-                            </div>
-                          </td>
+                <>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="table-shell auth-table admin-data-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Name</th>
+                          <th>Game</th>
+                          <th>Start</th>
+                          <th>Slots</th>
+                          <th>Status</th>
+                          <th>Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {paginatedTournaments.map((t) => (
+                          <tr key={t.id}>
+                            <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{t.publicId || t.id}</td>
+                            <td>{t.name}</td>
+                            <td>{t.game || '-'}</td>
+                            <td>{formatDate(t.startDate)}</td>
+                            <td>{t.teamSlots ?? t.teamSlots === 0 ? t.teamSlots : (t.teamSlots ?? t.teamSlots)}</td>
+                            <td>{t.status ?? '-'}</td>
+                            <td>
+                              <div className="cta-row">
+                                <button type="button" className="ghost-btn" onClick={async () => { const d = await getTournamentById(t.id); setSelected(d); }}>View</button>
+                                <button type="button" className="primary-btn" onClick={() => setEditingId(t.id)}>Edit</button>
+                                <button type="button" className="ghost-btn" onClick={async () => {
+                                  try {
+                                    const details = await getTournamentById(t.id);
+                                    setDeleteTarget({ id: t.id, publicId: details.publicId || t.publicId || t.id, name: t.name, teamsCount: details.teamsCount });
+                                  } catch (err) {
+                                    setTError(err.message || 'Failed to load details');
+                                  }
+                                }}>Delete</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
                   <div className="admin-pagination-row">
                     <p className="admin-pagination-summary">
@@ -675,7 +677,7 @@ function AdminPanel() {
                       <button type="button" className="ghost-btn" disabled={tournamentPage >= totalTournamentPages} onClick={() => setTournamentPage((p) => Math.min(totalTournamentPages, p + 1))}>Next</button>
                     </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
 
@@ -1014,51 +1016,53 @@ function AdminPanel() {
             {!matchResultsLoading && filteredMatchResults.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No match results match your filters.</p> : null}
 
             {!matchResultsLoading && filteredMatchResults.length > 0 ? (
-              <div style={{ overflowX: 'auto', marginTop: '0.8rem' }}>
-                <table className="table-shell auth-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Tournament</th>
-                      <th>Round</th>
-                      <th>Matchup</th>
-                      <th>Score</th>
-                      <th>Winner</th>
-                      <th>Released</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedMatchResults.map((result) => {
-                      const scoreLabel = result.teamAScore != null && result.teamBScore != null
-                        ? `${result.teamAScore} - ${result.teamBScore}`
-                        : '-';
+              <>
+                <div style={{ overflowX: 'auto', marginTop: '0.8rem' }}>
+                  <table className="table-shell auth-table admin-data-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Tournament</th>
+                        <th>Round</th>
+                        <th>Matchup</th>
+                        <th>Score</th>
+                        <th>Winner</th>
+                        <th>Released</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedMatchResults.map((result) => {
+                        const scoreLabel = result.teamAScore != null && result.teamBScore != null
+                          ? `${result.teamAScore} - ${result.teamBScore}`
+                          : '-';
 
-                      return (
-                        <tr key={result.id}>
-                          <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{result.publicId || result.id}</td>
-                          <td>{result.tournamentName || result.tournamentPublicId || '-'}</td>
-                          <td>{formatRoundLabel(result.roundNumber, Math.max(1, Math.ceil(Math.log2(Math.max(2, Number(matchResultLookups.tournaments.find((tournament) => tournament.publicId === result.tournamentPublicId)?.teamSlots || 2))))))}</td>
-                          <td>{`${result.teamAName || result.teamAPublicId || '-'} vs ${result.teamBName || result.teamBPublicId || '-'}`}</td>
-                          <td>{scoreLabel}</td>
-                          <td>{result.winnerTeamName || result.winnerTeamPublicId || '-'}</td>
-                          <td>{result.createdAtUtc ? formatDate(result.createdAtUtc) : '-'}</td>
-                          <td>
-                            <div className="cta-row">
-                              <button
-                                type="button"
-                                className="ghost-btn"
-                                onClick={() => setMatchResultDeleteTarget(result)}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        return (
+                          <tr key={result.id}>
+                            <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{result.publicId || result.id}</td>
+                            <td>{result.tournamentName || result.tournamentPublicId || '-'}</td>
+                            <td>{formatRoundLabel(result.roundNumber, Math.max(1, Math.ceil(Math.log2(Math.max(2, Number(matchResultLookups.tournaments.find((tournament) => tournament.publicId === result.tournamentPublicId)?.teamSlots || 2))))))}</td>
+                            <td>{`${result.teamAName || result.teamAPublicId || '-'} vs ${result.teamBName || result.teamBPublicId || '-'}`}</td>
+                            <td>{scoreLabel}</td>
+                            <td>{result.winnerTeamName || result.winnerTeamPublicId || '-'}</td>
+                            <td>{result.createdAtUtc ? formatDate(result.createdAtUtc) : '-'}</td>
+                            <td>
+                              <div className="cta-row">
+                                <button
+                                  type="button"
+                                  className="ghost-btn"
+                                  onClick={() => setMatchResultDeleteTarget(result)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
                 <div className="admin-pagination-row">
                   <p className="admin-pagination-summary">
@@ -1073,7 +1077,7 @@ function AdminPanel() {
                     <button type="button" className="ghost-btn" disabled={matchResultPage >= totalMatchResultPages} onClick={() => setMatchResultPage((page) => Math.min(totalMatchResultPages, page + 1))}>Next</button>
                   </div>
                 </div>
-              </div>
+              </>
             ) : null}
 
             {matchResultEditorOpen ? (

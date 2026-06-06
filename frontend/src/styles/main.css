@@ -113,6 +113,7 @@ a {
   justify-content: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+  min-width: 0;
 }
 
 .nav-link,
@@ -373,6 +374,7 @@ button {
   justify-content: center; /* center the horizontal bar */
   width: 100%;
   padding: 0 0.75rem;
+  min-width: 0;
 }
 
 .admin-quick-nav .nav-chip {
@@ -405,6 +407,9 @@ button {
   display: grid;
   grid-template-columns: 1fr; /* single column now that sidebar removed */
   gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 
@@ -425,6 +430,17 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .admin-quick-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+  }
+
+  .admin-quick-nav .nav-chip {
+    flex: 0 0 auto;
+  }
+
   .admin-side-nav {
     position: static;
     flex-direction: row;
@@ -437,10 +453,11 @@ button {
 /* ensure anchored sections are visible below sticky navbar */
 .admin-column section {
   scroll-margin-top: 96px;
-  max-width: 1200px; /* keep feature window centered and reasonably narrow */
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
   width: 100%;
+  min-width: 0;
 }
 
 .stack-list {
@@ -1437,6 +1454,19 @@ button {
     flex-basis: 260px;
     min-width: 260px;
   }
+
+  .admin-column section {
+    padding: 0.85rem;
+  }
+
+  .admin-pagination-row,
+  .admin-pagination-controls {
+    flex-wrap: wrap;
+  }
+
+  .auth-table td:last-child {
+    min-width: 220px;
+  }
 }
 
 .team-roster-inline-note {
@@ -2126,6 +2156,9 @@ select:focus {
 
 .table-shell {
   overflow-x: auto;
+  display: block;
+  width: 100%;
+  max-width: 100%;
 }
 
 .leaderboard-results-shell {
@@ -2200,6 +2233,7 @@ select:focus {
 .auth-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 100%;
 }
 .auth-table th,
 .auth-table td {
@@ -2215,6 +2249,24 @@ select:focus {
 .auth-table td:last-child {
   width: auto;
   min-width: 260px; /* ensure action column can contain buttons on one row */
+}
+
+.auth-table th,
+.auth-table td {
+  min-width: 0;
+  word-break: normal;
+}
+
+.admin-data-table {
+  min-width: 980px;
+}
+
+.admin-data-table th {
+  white-space: nowrap;
+}
+
+.admin-data-table td {
+  vertical-align: top;
 }
 
 .admin-report-description-cell {
@@ -2581,16 +2633,43 @@ td {
 
 @media (max-width: 980px) {
   .gs-navbar {
-    grid-template-columns: 1fr;
-    text-align: center;
+    grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) auto;
+    text-align: left;
+    align-items: center;
+  }
+
+  .brand-block h1 {
+    font-size: 1.25rem;
   }
 
   .user-tools {
-    justify-content: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    white-space: nowrap;
   }
 
   .content-shell {
     display: block;
+  }
+
+  .gs-navbar nav {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+
+  .gs-navbar nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link,
+  .side-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
 
