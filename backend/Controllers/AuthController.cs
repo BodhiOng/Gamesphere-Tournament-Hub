@@ -4,6 +4,7 @@ using Gamesphere.DTOs;
 using Gamesphere.Models;
 using Gamesphere.Utilities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System;
 
@@ -79,11 +80,11 @@ namespace Gamesphere.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterDTO dto)
         {
-            var username = dto.Username.Trim();
+            var username = dto.Username.Trim().ToLowerInvariant();
             var email = dto.Email.Trim();
 
-            var usernameTaken = _ctx.Users.Any(user => user.Username == username)
-                || _ctx.AccountRequests.Any(request => request.Username == username);
+            var usernameTaken = _ctx.Users.Any(user => EF.Functions.ILike(user.Username, username))
+                || _ctx.AccountRequests.Any(request => EF.Functions.ILike(request.Username, username));
 
             var emailTaken = _ctx.Users.Any(user => user.Email == email)
                 || _ctx.AccountRequests.Any(request => request.Email == email);

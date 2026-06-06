@@ -14,16 +14,18 @@ export async function getAccountRequests() {
   return request('/api/admin/account-requests');
 }
 
-export async function approveAccountRequest(id) {
-  return request(`/api/admin/account-requests/${id}/approve`, { method: 'POST' });
+export async function approveAccountRequest(id, promoteToAdmin = false) {
+  const query = new URLSearchParams({
+    promoteToAdmin: promoteToAdmin ? 'true' : 'false',
+  });
+
+  return request(`/api/admin/account-requests/${id}/approve?${query.toString()}`, {
+    method: 'POST',
+  });
 }
 
 export async function rejectAccountRequest(id) {
   return request(`/api/admin/account-requests/${id}/reject`, { method: 'POST' });
-}
-
-export async function deleteAccountRequest(id) {
-  return request(`/api/admin/account-requests/${id}`, { method: 'DELETE' });
 }
 
 export async function getReports() {

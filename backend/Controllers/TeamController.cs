@@ -174,7 +174,8 @@ namespace Gamesphere.Controllers
                 return BadRequest("Username is required.");
             }
 
-            var member = _ctx.Users.FirstOrDefault(item => item.Username == username);
+            var normalizedUsername = username.ToLowerInvariant();
+            var member = _ctx.Users.FirstOrDefault(item => EF.Functions.ILike(item.Username, normalizedUsername));
             if (member == null)
             {
                 return NotFound("Target user not found.");
@@ -235,7 +236,8 @@ namespace Gamesphere.Controllers
                 return BadRequest("Username is required.");
             }
 
-            var member = _ctx.Users.FirstOrDefault(item => item.Username == username);
+            var normalizedUsername = username.ToLowerInvariant();
+            var member = _ctx.Users.FirstOrDefault(item => EF.Functions.ILike(item.Username, normalizedUsername));
             if (member == null)
             {
                 return NotFound("Target user not found.");
@@ -290,7 +292,8 @@ namespace Gamesphere.Controllers
                 return BadRequest("Username is required.");
             }
 
-            var member = _ctx.Users.FirstOrDefault(item => item.Username == username);
+            var normalizedUsername = username.ToLowerInvariant();
+            var member = _ctx.Users.FirstOrDefault(item => EF.Functions.ILike(item.Username, normalizedUsername));
             if (member == null)
             {
                 return NotFound("Target user not found.");

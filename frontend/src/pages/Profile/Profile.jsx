@@ -58,7 +58,10 @@ function Profile() {
 
   const onChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === 'username' ? value.toLowerCase() : value,
+    }));
   };
 
   const onSubmit = async (event) => {
@@ -149,6 +152,7 @@ function Profile() {
             Username
             <input
               name="username"
+              autoCapitalize="none"
               value={form.username}
               onChange={onChange}
               disabled={loading || saving}

@@ -3,7 +3,6 @@ import {
   approveAccountRequest,
   createMatchResult,
   deleteMatchResult,
-  deleteAccountRequest,
   deleteReportedAccount,
   getAccountRequests,
   getMatchResultLookups,
@@ -21,6 +20,7 @@ const TOURNAMENTS_PER_PAGE = 10;
 const REQUESTS_PER_PAGE = 10;
 const REPORTS_PER_PAGE = 10;
 const MATCH_RESULTS_PER_PAGE = 10;
+const REQUEST_ADMIN_SELECTIONS_KEY = 'gs_admin_request_promotions';
 
 function formatDateInputValue(iso) {
   if (!iso) return '';
@@ -70,12 +70,20 @@ const regionOptions = [
 
 function AdminPanel() {
   const { user } = useAuth();
+  const [requestAdminSelections, setRequestAdminSelections] = useState(() => {
+    try {
+      const raw = localStorage.getItem(REQUEST_ADMIN_SELECTIONS_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [requestSearch, setRequestSearch] = useState('');
   const [requestStatusFilter, setRequestStatusFilter] = useState('all');
-  const [requestDeleteTarget, setRequestDeleteTarget] = useState(null);
   const [requestPage, setRequestPage] = useState(1);
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -150,26 +158,23 @@ function AdminPanel() {
     setRequests(data);
   };
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(REQUEST_ADMIN_SELECTIONS_KEY, JSON.stringify(requestAdminSelections));
+    } catch {
+      // ignore persistence errors
+    }
+  }, [requestAdminSelections]);
+
   const handleDecision = async (id, decision) => {
     setError('');
     try {
       if (decision === 'approve') {
-        await approveAccountRequest(id);
+        await approveAccountRequest(id, Boolean(requestAdminSelections[id]));
       } else {
         await rejectAccountRequest(id);
       }
 
-      await refreshRequests();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleDeleteRequest = async (id) => {
-    setError('');
-    try {
-      await deleteAccountRequest(id);
-      setRequestDeleteTarget(null);
       await refreshRequests();
     } catch (err) {
       setError(err.message);
@@ -910,6 +915,7 @@ function AdminPanel() {
                         <th>Username</th>
                         <th>Email</th>
                         <th>Requested</th>
+                        <th>Create as admin</th>
                         <th>Status</th>
                         <th>Actions</th>
                       </tr>
@@ -919,23 +925,37 @@ function AdminPanel() {
                         const statusLabel = getRequestStatusLabel(req.status);
                         const requestedAt = req.requestedAt ? new Date(req.requestedAt).toLocaleString() : '-';
                         const requestId = req.publicId || req.id;
+                        const createAsAdmin = Boolean(requestAdminSelections[requestId]);
                         return (
                           <tr key={requestId}>
                             <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{requestId}</td>
                             <td>{req.username}</td>
                             <td>{req.email}</td>
                             <td>{requestedAt}</td>
+                            <td>
+                              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={createAsAdmin}
+                                  onChange={(event) => {
+                                    const { checked } = event.target;
+                                    setRequestAdminSelections((current) => ({
+                                      ...current,
+                                      [requestId]: checked,
+                                    }));
+                                  }}
+                                />
+                                <span>Admin</span>
+                              </label>
+                            </td>
                             <td>{statusLabel}</td>
                             <td>
                               <div className="cta-row">
-                                <button type="button" className="primary-btn" onClick={() => handleDecision(requestId, 'approve')} disabled={statusLabel === 'approved'}>
+                                <button type="button" className="primary-btn" onClick={() => handleDecision(requestId, 'approve')}>
                                   Approve
                                 </button>
-                                        <button type="button" className="ghost-btn" onClick={() => handleDecision(requestId, 'reject')} disabled={statusLabel === 'rejected'}>
+                                <button type="button" className="ghost-btn" onClick={() => handleDecision(requestId, 'reject')} disabled={statusLabel === 'rejected'}>
                                   Reject
-                                </button>
-                                <button type="button" className="ghost-btn" onClick={() => setRequestDeleteTarget({ id: requestId, username: req.username, email: req.email })}>
-                                  Delete
                                 </button>
                               </div>
                             </td>
@@ -961,20 +981,6 @@ function AdminPanel() {
                 </div>
               );
             })()}
-
-            <DeleteConfirm
-              open={!!requestDeleteTarget}
-              title={requestDeleteTarget ? `Delete account request: ${requestDeleteTarget.username}` : 'Delete account request'}
-              message={requestDeleteTarget ? 'This will permanently remove this account request entry. This action cannot be undone.' : ''}
-              details={requestDeleteTarget ? `ID: ${requestDeleteTarget.id} | Email: ${requestDeleteTarget.email}` : ''}
-              confirmLabel="Delete"
-              cancelLabel="Cancel"
-              onCancel={() => setRequestDeleteTarget(null)}
-              onConfirm={async () => {
-                if (!requestDeleteTarget) return;
-                await handleDeleteRequest(requestDeleteTarget.id);
-              }}
-            />
           </div>
           </section>
         )}

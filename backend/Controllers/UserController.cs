@@ -79,7 +79,7 @@ namespace Gamesphere.Controllers
             var requestedEmail = dto.Email?.Trim();
 
             var nextUsername = !string.IsNullOrWhiteSpace(requestedUsername)
-                ? requestedUsername
+                ? requestedUsername.ToLowerInvariant()
                 : user.Username;
 
             var nextEmail = !string.IsNullOrWhiteSpace(requestedEmail) ? requestedEmail : user.Email;
@@ -89,13 +89,13 @@ namespace Gamesphere.Controllers
                 return BadRequest("Username and email are required.");
             }
 
-            var usernameTakenByAnotherUser = _ctx.Users.Any(item => item.Id != user.Id && item.Username == nextUsername);
+            var usernameTakenByAnotherUser = _ctx.Users.Any(item => item.Id != user.Id && EF.Functions.ILike(item.Username, nextUsername));
             if (usernameTakenByAnotherUser)
             {
                 return Conflict("That username is already taken. Please choose another one.");
             }
 
-            var usernameTakenByPendingRequest = _ctx.AccountRequests.Any(item => item.Email != user.Email && item.Username == nextUsername);
+            var usernameTakenByPendingRequest = _ctx.AccountRequests.Any(item => item.Email != user.Email && EF.Functions.ILike(item.Username, nextUsername));
             if (usernameTakenByPendingRequest)
             {
                 return Conflict("That username is already reserved by a pending account request.");

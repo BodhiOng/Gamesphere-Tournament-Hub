@@ -48,7 +48,7 @@ namespace Gamesphere.Controllers
         }
 
         [HttpPost("account-requests/{id}/approve")]
-        public IActionResult ApproveAccountRequest(string id)
+        public IActionResult ApproveAccountRequest(string id, [FromQuery] bool promoteToAdmin = false)
         {
             var request = _ctx.AccountRequests.FirstOrDefault(item => item.PublicId == id);
             if (request == null && int.TryParse(id, out var numericId))
@@ -69,23 +69,38 @@ namespace Gamesphere.Controllers
                 return Conflict("A user with this email already exists.");
             }
 
-            var user = new User
-            {
-                Username = request.Username,
-                Email = request.Email,
-                CreatedAt = DateTime.UtcNow,
-                PublicId = GenerateUniqueUserPublicId()
-            };
-            user.PasswordHash = request.PasswordHash;
+            var shouldPromoteToAdmin = promoteToAdmin;
 
-            // If the request was already approved previously and a user exists (shouldn't), this will still try to add;
-            // the prior check above prevents duplicate emails.
-            _ctx.Users.Add(user);
+            var user = _ctx.Users.FirstOrDefault(item => item.Email == request.Email);
+            if (user == null)
+            {
+                user = new User
+                {
+                    Username = request.Username,
+                    Email = request.Email,
+                    CreatedAt = DateTime.UtcNow,
+                    PublicId = GenerateUniqueUserPublicId(),
+                    IsAdmin = shouldPromoteToAdmin
+                };
+                user.PasswordHash = request.PasswordHash;
+                _ctx.Users.Add(user);
+            }
+            else if (shouldPromoteToAdmin)
+            {
+                user.IsAdmin = true;
+            }
+
             request.Status = AccountRequestStatus.Approved;
             request.ReviewedAt = DateTime.UtcNow;
             _ctx.SaveChanges();
 
-            return Ok(new { message = "Account request approved.", userId = user.Id, userPublicId = user.PublicId });
+            return Ok(new
+            {
+                message = "Account request approved.",
+                userId = user.Id,
+                userPublicId = user.PublicId,
+                isAdmin = user.IsAdmin
+            });
         }
 
         private string GenerateUniqueUserPublicId()

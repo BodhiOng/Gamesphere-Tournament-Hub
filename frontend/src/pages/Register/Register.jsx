@@ -13,7 +13,11 @@ function Register() {
   const [error, setError] = useState('');
 
   const onChange = (event) => {
-    setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === 'username' ? value.toLowerCase() : value,
+    }));
   };
 
   const onSubmit = async (event) => {
@@ -37,7 +41,7 @@ function Register() {
         <h2>Create your competitor account</h2>
         <label>
           Username
-          <input name="username" onChange={onChange} value={form.username} required />
+          <input name="username" autoCapitalize="none" onChange={onChange} value={form.username} required />
         </label>
         <label>
           Email
