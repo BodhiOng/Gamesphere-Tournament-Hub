@@ -19,7 +19,10 @@ function Login() {
 
     try {
       const response = await login(form);
-      navigate('/', { replace: true });
+      const nextPath = response?.user?.isAdmin
+        ? '/admin'
+        : location.state?.from || '/';
+      navigate(nextPath, { replace: true });
     } catch (err) {
       setError(err.message);
     }

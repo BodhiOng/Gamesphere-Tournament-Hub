@@ -54,7 +54,7 @@ function AppRoutes() {
         <Route path="/tournaments/:publicId" element={<TournamentDetails />} />
         <Route path="/team-management" element={<RequireActiveUser><TeamManagement /></RequireActiveUser>} />
         <Route path="/schedule" element={<MatchSchedule />} />
-        <Route path="/leaderboards" element={<RequireActiveUser><Leaderboards /></RequireActiveUser>} />
+        <Route path="/leaderboards" element={<Leaderboards />} />
         <Route path="/profile" element={<RequireActiveUser><Profile /></RequireActiveUser>} />
         <Route path="/users/:userPublicId" element={<UserProfile />} />
       </Route>

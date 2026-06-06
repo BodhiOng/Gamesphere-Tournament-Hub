@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
@@ -13,8 +13,10 @@ const navItems = [
 function Navbar() {
   const { user, logout, isSessionActive } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = !!user?.isAdmin;
   const showAuthLinks = Boolean(user && isSessionActive);
+  const brandTarget = location.pathname.startsWith('/admin') ? '/admin' : '/';
   const displayedItems = isAdmin && showAuthLinks
     ? navItems.filter((item) => item.to === '/admin' || item.to === '/profile')
     : navItems.filter((item) => {
@@ -25,10 +27,13 @@ function Navbar() {
 
   return (
     <header className="gs-navbar">
-      <NavLink to="/" className="brand-block">
+      <Link
+        to={brandTarget}
+        className="brand-block"
+      >
         <p className="brand-chip">GameSphere</p>
         <h1>Tournament Hub</h1>
-      </NavLink>
+      </Link>
 
       <nav>
         {displayedItems.map((item) => (
