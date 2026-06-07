@@ -384,8 +384,6 @@ namespace Gamesphere.Migrations
                     b.HasIndex("PublicId")
                         .IsUnique();
 
-                    b.HasIndex("TeamId");
-
                     b.ToTable("Users");
                 });
 
@@ -458,15 +456,6 @@ namespace Gamesphere.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Gamesphere.Models.User", b =>
-                {
-                    b.HasOne("Gamesphere.Models.Team", "Team")
-                        .WithMany("Members")
-                        .HasForeignKey("TeamId");
-
-                    b.Navigation("Team");
-                });
-
             modelBuilder.Entity("Gamesphere.Models.Leaderboard", b =>
                 {
                     b.Navigation("Entries");
@@ -474,8 +463,6 @@ namespace Gamesphere.Migrations
 
             modelBuilder.Entity("Gamesphere.Models.Team", b =>
                 {
-                    b.Navigation("Members");
-
                     b.Navigation("Registrations");
 
                     b.Navigation("TeamMemberships");

@@ -394,7 +394,6 @@ namespace Gamesphere.Migrations
 
                     b.HasIndex("PublicId")
                         .IsUnique();
-
                     b.ToTable("Users");
                 });
 
