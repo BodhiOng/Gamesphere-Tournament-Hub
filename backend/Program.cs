@@ -1,5 +1,4 @@
 using Gamesphere.Data;
-using Gamesphere.Hubs;
 using Gamesphere.Middleware;
 using Gamesphere.Services;
 using Gamesphere.Repositories;
@@ -44,9 +43,6 @@ builder.Services.AddScoped<ITournamentService, Gamesphere.Services.TournamentSer
 builder.Services.AddScoped<ITeamRepository, Gamesphere.Repositories.TeamRepository>();
 builder.Services.AddScoped<ITeamService, Gamesphere.Services.TeamService>();
 
-// SignalR
-builder.Services.AddSignalR();
-
 var app = builder.Build();
 
 // Middleware pipeline
@@ -62,7 +58,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
-app.MapHub<LiveLeaderboardHub>("/hubs/leaderboard");
 
 // Seed initial data (if any)
 using (var scope = app.Services.CreateScope())
