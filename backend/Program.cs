@@ -47,17 +47,20 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseMiddleware<ErrorHandlerMiddleware>();
+app.UseCors("DefaultCors");
 app.UseMiddleware<JwtMiddleware>();
 
-app.UseCors("DefaultCors");
+app.UseSwagger();
+app.UseSwaggerUI();
 
-if (app.Environment.IsDevelopment())
-{
-	app.UseSwagger();
-	app.UseSwaggerUI();
-}
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+app.MapGet("/api/health", () => "Gamesphere API is running");
 
 app.MapControllers();
+
+app.MapFallbackToFile("index.html");
 
 // Seed initial data (if any)
 using (var scope = app.Services.CreateScope())

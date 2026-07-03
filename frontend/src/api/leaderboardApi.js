@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5286';
+const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 import { mockLeaderboardRows } from './mockData';
 
 async function request(path, options = {}) {
