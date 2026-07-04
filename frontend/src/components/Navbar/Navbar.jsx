@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
@@ -10,13 +10,28 @@ const navItems = [
   { to: '/admin', label: 'Admin Panel', authRequired: true, adminOnly: true },
 ];
 
+function getStoredUserSnapshot() {
+  try {
+    const raw = localStorage.getItem('gs_user');
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function Navbar() {
   const { user, logout, isSessionActive } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const isAdmin = !!user?.isAdmin;
+  const storedUser = user ? null : getStoredUserSnapshot();
+  const effectiveUser = user ?? storedUser;
+  const isAdmin = Boolean(effectiveUser?.isAdmin);
   const showAuthLinks = Boolean(user && isSessionActive);
-  const brandTarget = location.pathname.startsWith('/admin') ? '/admin' : '/';
+  const brandTarget = isAdmin && showAuthLinks ? '/admin' : '/';
   const displayedItems = isAdmin && showAuthLinks
     ? navItems.filter((item) => item.to === '/admin' || item.to === '/profile')
     : navItems.filter((item) => {

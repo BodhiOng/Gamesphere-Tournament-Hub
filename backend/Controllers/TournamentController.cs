@@ -3,9 +3,6 @@ using Gamesphere.Services;
 using Gamesphere.Models;
 using Gamesphere.DTOs;
 using Gamesphere.Data;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.EntityFrameworkCore;
-using System;
 
 namespace Gamesphere.Controllers
 {
@@ -23,18 +20,21 @@ namespace Gamesphere.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAll() => Ok(_service.GetAll());
+        public async Task<IActionResult> GetAll()
+        {
+            return Ok(await _service.GetAllAsync());
+        }
 
         [HttpGet("{id}")]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> Get(int id)
         {
-            var t = _service.Get(id);
+            var t = await _service.GetAsync(id);
             if (t == null) return NotFound();
             return Ok(t);
         }
 
         [HttpGet("public/{publicId}")]
-        public IActionResult GetByPublicId(string publicId)
+        public async Task<IActionResult> GetByPublicId(string publicId)
         {
             var normalizedPublicId = publicId?.Trim();
             if (string.IsNullOrWhiteSpace(normalizedPublicId))
@@ -42,7 +42,7 @@ namespace Gamesphere.Controllers
                 return BadRequest("Tournament public id is required.");
             }
 
-            var t = _ctx.Tournaments.AsNoTracking().FirstOrDefault(item => item.PublicId == normalizedPublicId);
+            var t = await _service.GetByPublicIdAsync(normalizedPublicId);
             if (t == null)
             {
                 return NotFound();

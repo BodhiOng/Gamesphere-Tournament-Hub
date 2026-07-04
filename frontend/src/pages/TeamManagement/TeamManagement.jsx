@@ -51,6 +51,7 @@ function TeamManagement() {
   const [joinRequestPage, setJoinRequestPage] = useState(1);
   const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
   const [myTeamsLoaded, setMyTeamsLoaded] = useState(false);
+  const [discoverLoaded, setDiscoverLoaded] = useState(false);
   const [hasInitializedTeamsView, setHasInitializedTeamsView] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [teamInfo, setTeamInfo] = useState({
@@ -311,6 +312,7 @@ function TeamManagement() {
       setDiscoverFeed([]);
       setCanRequestJoin(false);
       setMyTeamsLoaded(false);
+      setDiscoverLoaded(false);
       return;
     }
 
@@ -367,22 +369,26 @@ function TeamManagement() {
     if (!user) {
       setDiscoverFeed([]);
       setCanRequestJoin(false);
+      setDiscoverLoaded(false);
       setHasInitializedTeamsView(false);
       return;
     }
 
     let ignore = false;
+    setDiscoverLoaded(false);
     discoverTeams(user)
       .then((result) => {
         if (!ignore) {
           setDiscoverFeed(Array.isArray(result?.teams) ? result.teams : []);
           setCanRequestJoin(Boolean(result?.canRequestJoin));
+          setDiscoverLoaded(true);
         }
       })
       .catch(() => {
         if (!ignore) {
           setDiscoverFeed([]);
           setCanRequestJoin(false);
+          setDiscoverLoaded(true);
         }
       });
 
@@ -1099,7 +1105,9 @@ function TeamManagement() {
       {showMyTeamsPanel ? (
         <article className="surface-card" style={{ marginTop: '1rem' }}>
           <h3>My Teams</h3>
-          {myTeams.length === 0 ? (
+          {!myTeamsLoaded ? (
+            <p style={{ marginTop: '0.55rem' }}>Loading teams...</p>
+          ) : myTeams.length === 0 ? (
             <p style={{ marginTop: '0.55rem' }}>You are not enrolled in any teams yet.</p>
           ) : (
             <div className="my-teams-list" style={{ marginTop: '0.7rem' }}>
@@ -1139,7 +1147,9 @@ function TeamManagement() {
               </div>
 
               <div className="team-discover-grid">
-                {pagedDiscoverTeams.map((team) => {
+                {!discoverLoaded ? (
+                  <p className="team-empty-error">Loading teams...</p>
+                ) : pagedDiscoverTeams.map((team) => {
                   const preferredGames = Array.isArray(team.preferredGames) ? team.preferredGames : [];
                   const visibleGames = preferredGames.slice(0, DISCOVER_VISIBLE_GAMES);
                   const hasMoreGames = preferredGames.length > DISCOVER_VISIBLE_GAMES;
@@ -1171,9 +1181,9 @@ function TeamManagement() {
                 })}
               </div>
 
-              {filteredDiscoverTeams.length === 0 ? (
+              {discoverLoaded && filteredDiscoverTeams.length === 0 ? (
                 <p className="team-empty-error">No teams match your search.</p>
-              ) : (
+              ) : discoverLoaded ? (
                 <div className="team-discover-pagination-row">
                   <p>
                     Showing {discoverSafePage * DISCOVER_PAGE_SIZE + 1}-
@@ -1199,7 +1209,7 @@ function TeamManagement() {
                     </button>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {error && <p className="error-text team-empty-error">{error}</p>}

@@ -3,7 +3,8 @@ import { loginUser, normalizeAuthUser, registerUser } from '../api/authApi';
 import { getCurrentUserProfile } from '../api/userApi';
 
 const AuthContext = createContext(null);
-const SUSPENSION_CHECK_INTERVAL_MS = 10_000;
+const SUSPENSION_CHECK_INTERVAL_MS = 60_000;
+const MIN_PROFILE_REFRESH_MS = 15_000;
 
 function areUsersEqual(left, right) {
   if (left === right) {
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const suspensionCheckToken = useRef(0);
+  const lastProfileRefreshAt = useRef(0);
 
   const logout = useCallback(() => {
     suspensionCheckToken.current += 1;
@@ -55,15 +57,21 @@ export function AuthProvider({ children }) {
     } catch {}
   }, []);
 
-  const refreshSuspensionState = useCallback(async (currentUser) => {
+  const refreshSuspensionState = useCallback(async (currentUser, { force = false } = {}) => {
     if (!currentUser) {
       return;
     }
 
+    const nowMs = Date.now();
+    if (!force && nowMs - lastProfileRefreshAt.current < MIN_PROFILE_REFRESH_MS) {
+      return;
+    }
+
+    lastProfileRefreshAt.current = nowMs;
     const checkToken = suspensionCheckToken.current;
 
     try {
-      const freshProfile = await getCurrentUserProfile(currentUser);
+      const freshProfile = await getCurrentUserProfile(currentUser, { force });
       if (checkToken !== suspensionCheckToken.current) {
         return;
       }
@@ -104,7 +112,7 @@ export function AuthProvider({ children }) {
         const restoredUser = normalizeStoredUser(JSON.parse(raw));
         setUser(restoredUser);
         if (restoredUser) {
-          void refreshSuspensionState(restoredUser);
+          void refreshSuspensionState(restoredUser, { force: true });
         }
       }
     } catch (e) {
@@ -126,12 +134,12 @@ export function AuthProvider({ children }) {
     }, SUSPENSION_CHECK_INTERVAL_MS);
 
     const handleWindowFocus = () => {
-      void refreshSuspensionState(user);
+      void refreshSuspensionState(user, { force: true });
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        void refreshSuspensionState(user);
+        void refreshSuspensionState(user, { force: true });
       }
     };
 

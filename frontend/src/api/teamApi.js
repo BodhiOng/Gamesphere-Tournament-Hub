@@ -1,9 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+import { cachedRequestJson, invalidateApiCache, requestJson } from './httpClient';
 
-async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
-  return res.status === 204 ? null : res.json();
+function invalidateTeamCache() {
+  invalidateApiCache((key) => key.startsWith('team:') || key.startsWith('user:profile:public:'));
 }
 
 function normalizeMember(member, index) {
@@ -127,7 +125,11 @@ export async function getTeamRoster(user, teamId = null) {
   const suffix = query.toString();
 
   try {
-    const data = await request(`/api/team/roster${suffix ? `?${suffix}` : ''}`);
+    const cacheKey = `team:roster:${suffix || 'current'}`;
+    const data = await cachedRequestJson(`/api/team/roster${suffix ? `?${suffix}` : ''}`, {
+      ttlMs: 20_000,
+      cacheKey,
+    });
     const members = Array.isArray(data?.members) ? data.members.map(normalizeMember).filter(Boolean) : [];
     return {
       teamId: data?.teamId ?? null,
@@ -176,7 +178,10 @@ export async function getMyTeams(user) {
   const suffix = query.toString();
 
   try {
-    const data = await request(`/api/team/mine${suffix ? `?${suffix}` : ''}`);
+    const data = await cachedRequestJson(`/api/team/mine${suffix ? `?${suffix}` : ''}`, {
+      ttlMs: 20_000,
+      cacheKey: `team:mine:${suffix || 'current'}`,
+    });
     return Array.isArray(data)
       ? data.map(normalizeTeamSummary).filter((item) => item && item.id != null)
       : [];
@@ -190,7 +195,7 @@ export async function updateTeamProfile(user, payload, teamId = null) {
     throw new Error('You must be logged in to update a team profile.');
   }
 
-  return request('/api/team/profile', {
+  const response = await requestJson('/api/team/profile', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -202,6 +207,8 @@ export async function updateTeamProfile(user, payload, teamId = null) {
       memberLimit: payload?.memberLimit ?? null,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function discoverTeams(user) {
@@ -219,7 +226,10 @@ export async function discoverTeams(user) {
   }
 
   const suffix = query.toString();
-  const data = await request(`/api/team/discover${suffix ? `?${suffix}` : ''}`);
+  const data = await cachedRequestJson(`/api/team/discover${suffix ? `?${suffix}` : ''}`, {
+    ttlMs: 20_000,
+    cacheKey: `team:discover:${suffix || 'current'}`,
+  });
   return {
     canRequestJoin: Boolean(data?.canRequestJoin),
     teams: Array.isArray(data?.teams) ? data.teams.map(normalizeTeamSummary).filter(Boolean) : [],
@@ -231,7 +241,7 @@ export async function requestTeamJoin(user, payload) {
     throw new Error('You must be logged in to request joining a team.');
   }
 
-  return request('/api/team/join/request', {
+  const response = await requestJson('/api/team/join/request', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -241,6 +251,8 @@ export async function requestTeamJoin(user, payload) {
       message: payload?.message ?? '',
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function cancelTeamJoinRequest(user, payload) {
@@ -248,7 +260,7 @@ export async function cancelTeamJoinRequest(user, payload) {
     throw new Error('You must be logged in to cancel a join request.');
   }
 
-  return request('/api/team/join/cancel', {
+  const response = await requestJson('/api/team/join/cancel', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -256,6 +268,8 @@ export async function cancelTeamJoinRequest(user, payload) {
       teamId: payload?.teamId ?? null,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function getTeamJoinRequests(user, teamId = null) {
@@ -277,7 +291,10 @@ export async function getTeamJoinRequests(user, teamId = null) {
   }
 
   const suffix = query.toString();
-  const data = await request(`/api/team/requests${suffix ? `?${suffix}` : ''}`);
+  const data = await cachedRequestJson(`/api/team/requests${suffix ? `?${suffix}` : ''}`, {
+    ttlMs: 10_000,
+    cacheKey: `team:requests:${suffix || 'current'}`,
+  });
   return Array.isArray(data)
     ? data.map((item) => ({
       id: item?.id ?? null,
@@ -297,7 +314,7 @@ async function reviewJoinRequest(user, requestId, teamId, action) {
     throw new Error('You must be logged in to review join requests.');
   }
 
-  return request(`/api/team/requests/${action}`, {
+  const response = await requestJson(`/api/team/requests/${action}`, {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -306,6 +323,8 @@ async function reviewJoinRequest(user, requestId, teamId, action) {
       requestId,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export function approveTeamJoinRequest(user, requestId, teamId = null) {
@@ -326,7 +345,7 @@ export async function createTeam(user, teamName) {
     throw new Error('Team name is required.');
   }
 
-  return request('/api/team', {
+  const response = await requestJson('/api/team', {
     method: 'POST',
     body: JSON.stringify({
       name,
@@ -334,6 +353,8 @@ export async function createTeam(user, teamName) {
       email: user.email,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function addTeamMember(user, username, teamId = null) {
@@ -346,7 +367,7 @@ export async function addTeamMember(user, username, teamId = null) {
     throw new Error('Username is required.');
   }
 
-  return request('/api/team/members', {
+  const response = await requestJson('/api/team/members', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -355,6 +376,8 @@ export async function addTeamMember(user, username, teamId = null) {
       username: trimmed,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function removeTeamMember(user, username, teamId = null) {
@@ -367,7 +390,7 @@ export async function removeTeamMember(user, username, teamId = null) {
     throw new Error('Username is required.');
   }
 
-  return request('/api/team/members/remove', {
+  const response = await requestJson('/api/team/members/remove', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -376,6 +399,8 @@ export async function removeTeamMember(user, username, teamId = null) {
       username: trimmed,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function assignTeamCaptain(user, username, teamId = null) {
@@ -388,7 +413,7 @@ export async function assignTeamCaptain(user, username, teamId = null) {
     throw new Error('Username is required.');
   }
 
-  return request('/api/team/captain', {
+  const response = await requestJson('/api/team/captain', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -397,6 +422,8 @@ export async function assignTeamCaptain(user, username, teamId = null) {
       username: trimmed,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function leaveTeam(user, teamId = null) {
@@ -404,7 +431,7 @@ export async function leaveTeam(user, teamId = null) {
     throw new Error('You must be logged in to leave a team.');
   }
 
-  return request('/api/team/leave', {
+  const response = await requestJson('/api/team/leave', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -412,6 +439,8 @@ export async function leaveTeam(user, teamId = null) {
       teamId,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function renameTeam(user, teamName, teamId = null) {
@@ -424,7 +453,7 @@ export async function renameTeam(user, teamName, teamId = null) {
     throw new Error('Team name is required.');
   }
 
-  return request('/api/team/rename', {
+  const response = await requestJson('/api/team/rename', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -433,6 +462,8 @@ export async function renameTeam(user, teamName, teamId = null) {
       name,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }
 
 export async function deleteTeam(user, teamId = null) {
@@ -440,7 +471,7 @@ export async function deleteTeam(user, teamId = null) {
     throw new Error('You must be logged in to delete a team.');
   }
 
-  return request('/api/team/delete', {
+  const response = await requestJson('/api/team/delete', {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: user.id,
@@ -448,4 +479,6 @@ export async function deleteTeam(user, teamId = null) {
       teamId,
     }),
   });
+  invalidateTeamCache();
+  return response;
 }

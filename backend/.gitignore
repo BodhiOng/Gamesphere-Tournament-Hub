@@ -42,6 +42,8 @@ ScaffoldingReadMe.txt
 wwwroot/uploads/
 appsettings.Local.json
 appsettings.*.local.json
+appsettings.json
+appsettings.Development.json
 
 # Local logs and databases
 *.log

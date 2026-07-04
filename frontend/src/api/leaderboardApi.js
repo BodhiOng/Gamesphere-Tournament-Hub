@@ -1,11 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+import { cachedRequestJson } from './httpClient';
 import { mockLeaderboardRows } from './mockData';
-
-async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
-  return res.status === 204 ? null : res.json();
-}
 
 function normalizeLeaderboardRow(row, index) {
   if (!row || typeof row !== 'object') {
@@ -24,14 +18,24 @@ function normalizeLeaderboardRow(row, index) {
   };
 }
 
-export async function getLeaderboard() {
-  try {
-    const data = await request('/api/leaderboard');
-    const rows = Array.isArray(data) ? data.map(normalizeLeaderboardRow) : [];
-    return rows.length > 0 ? rows : mockLeaderboardRows;
-  } catch {
-    return mockLeaderboardRows;
+function normalizeLeaderboardSummary(item) {
+  if (!item || typeof item !== 'object') {
+    return null;
   }
+
+  return {
+    tournament: {
+      id: item.tournament?.id ?? null,
+      publicId: item.tournament?.publicId ?? '',
+      name: item.tournament?.name ?? 'Unknown tournament',
+      status: item.tournament?.status ?? '',
+      game: item.tournament?.game ?? '',
+      region: item.tournament?.region ?? '',
+      startDate: item.tournament?.startDate ?? null,
+    },
+    latestCreatedAtUtc: item.latestCreatedAtUtc ?? null,
+    matchCount: item.matchCount ?? 0,
+  };
 }
 
 function normalizeMatchResultFeedItem(item, index) {
@@ -76,11 +80,89 @@ function normalizeMatchResultFeedItem(item, index) {
   };
 }
 
-export async function getPublicMatchResultFeed() {
+export async function getLeaderboard() {
   try {
-    const data = await request('/api/leaderboard/match-results');
-    return Array.isArray(data) ? data.map(normalizeMatchResultFeedItem).filter(Boolean) : [];
+    const data = await cachedRequestJson('/api/leaderboard', {
+      ttlMs: 30_000,
+      cacheKey: 'leaderboard:table',
+    });
+    const rows = Array.isArray(data) ? data.map(normalizeLeaderboardRow) : [];
+    return rows.length > 0 ? rows : mockLeaderboardRows;
   } catch {
-    return [];
+    return mockLeaderboardRows;
   }
+}
+
+export async function getPublicMatchResultFeed({
+  search = '',
+  page = 1,
+  pageSize = 10,
+  game = 'all',
+  region = 'all',
+  status = 'all',
+} = {}) {
+  const query = new URLSearchParams();
+  if (search.trim()) query.set('search', search.trim());
+  if (game && game !== 'all') query.set('game', game);
+  if (region && region !== 'all') query.set('region', region);
+  if (status && status !== 'all') query.set('status', status);
+  query.set('page', String(page));
+  query.set('pageSize', String(pageSize));
+
+  try {
+    const data = await cachedRequestJson(`/api/leaderboard/match-results?${query.toString()}`, {
+      ttlMs: 20_000,
+      cacheKey: `leaderboard:groups:${query.toString()}`,
+    });
+
+    const items = Array.isArray(data?.items)
+      ? data.items.map(normalizeLeaderboardSummary).filter(Boolean)
+      : [];
+
+    return {
+      items,
+      page: data?.page ?? page,
+      pageSize: data?.pageSize ?? pageSize,
+      totalItems: data?.totalItems ?? items.length,
+      totalPages: data?.totalPages ?? (items.length > 0 ? 1 : 0),
+    };
+  } catch {
+    return {
+      items: [],
+      page,
+      pageSize,
+      totalItems: 0,
+      totalPages: 0,
+    };
+  }
+}
+
+export async function getTournamentMatchResults(publicId) {
+  const normalizedPublicId = String(publicId || '').trim();
+  if (!normalizedPublicId) {
+    throw new Error('Tournament public id is required.');
+  }
+
+  const data = await cachedRequestJson(`/api/leaderboard/match-results/${encodeURIComponent(normalizedPublicId)}`, {
+    ttlMs: 20_000,
+    cacheKey: `leaderboard:tournament:${normalizedPublicId}`,
+  });
+
+  return {
+    tournament: normalizeLeaderboardSummary(data)?.tournament
+      ?? {
+        id: data?.tournament?.id ?? null,
+        publicId: data?.tournament?.publicId ?? '',
+        name: data?.tournament?.name ?? 'Unknown tournament',
+        status: data?.tournament?.status ?? '',
+        game: data?.tournament?.game ?? '',
+        region: data?.tournament?.region ?? '',
+        startDate: data?.tournament?.startDate ?? null,
+      },
+    latestCreatedAtUtc: data?.latestCreatedAtUtc ?? null,
+    matchCount: data?.matchCount ?? 0,
+    results: Array.isArray(data?.results)
+      ? data.results.map(normalizeMatchResultFeedItem).filter(Boolean)
+      : [],
+  };
 }

@@ -37,6 +37,7 @@ function TournamentDetails() {
   const { publicId } = useParams();
   const { user } = useAuth();
   const [tournament, setTournament] = useState(null);
+  const [tournamentLoading, setTournamentLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [registrations, setRegistrations] = useState([]);
@@ -53,32 +54,42 @@ function TournamentDetails() {
     let ignore = false;
 
     const loadTournament = async () => {
-      const byPublicId = await getTournamentByPublicId(publicId);
-      if (ignore) return;
+      setTournamentLoading(true);
+      try {
+        const byPublicIdResults = await Promise.all([
+          getTournamentByPublicId(publicId),
+          getTournamentRegistrationsByPublicId(publicId),
+        ]);
+        const byPublicId = byPublicIdResults[0];
+        if (ignore) return;
 
-      if (byPublicId) {
-        setTournament(byPublicId);
-        const updatedRegistrations = await getTournamentRegistrationsByPublicId(byPublicId.publicId);
+        if (byPublicId) {
+          setTournament(byPublicId);
+          if (!ignore) {
+            setRegistrations(byPublicIdResults[1]);
+          }
+          return;
+        }
+
+        const numericId = Number(publicId);
+        if (!Number.isFinite(numericId)) {
+          setTournament(null);
+          setRegistrations([]);
+          return;
+        }
+
+        const byId = await getTournamentById(numericId);
+        if (ignore) return;
+
+        setTournament(byId);
+        const updatedRegistrations = await getTournamentRegistrations(numericId);
         if (!ignore) {
           setRegistrations(updatedRegistrations);
         }
-        return;
-      }
-
-      const numericId = Number(publicId);
-      if (!Number.isFinite(numericId)) {
-        setTournament(null);
-        setRegistrations([]);
-        return;
-      }
-
-      const byId = await getTournamentById(numericId);
-      if (ignore) return;
-
-      setTournament(byId);
-      const updatedRegistrations = await getTournamentRegistrations(numericId);
-      if (!ignore) {
-        setRegistrations(updatedRegistrations);
+      } finally {
+        if (!ignore) {
+          setTournamentLoading(false);
+        }
       }
     };
 
@@ -174,6 +185,10 @@ function TournamentDetails() {
     } finally {
       setLeaving(false);
     }
+  }
+
+  if (tournamentLoading) {
+    return <p>Loading tournament...</p>;
   }
 
   if (!tournament) {

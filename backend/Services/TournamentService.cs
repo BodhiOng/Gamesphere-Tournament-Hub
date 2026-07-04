@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using Gamesphere.DTOs;
 using Gamesphere.Models;
 using Gamesphere.Repositories;
 
@@ -9,9 +9,11 @@ namespace Gamesphere.Services
         private readonly ITournamentRepository _repo;
         public TournamentService(ITournamentRepository repo) => _repo = repo;
 
-        public IEnumerable<Tournament> GetAll() => _repo.GetAll();
+        public Task<IReadOnlyList<TournamentSummaryDTO>> GetAllAsync() => _repo.GetAllAsync();
 
-        public Tournament? Get(int id) => _repo.Get(id);
+        public Task<TournamentSummaryDTO?> GetAsync(int id) => _repo.GetAsync(id);
+
+        public Task<TournamentSummaryDTO?> GetByPublicIdAsync(string publicId) => _repo.GetByPublicIdAsync(publicId);
 
         public Tournament Create(Tournament t)
         {

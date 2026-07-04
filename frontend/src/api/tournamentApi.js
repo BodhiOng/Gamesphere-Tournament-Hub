@@ -1,10 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-
-async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
-  return res.status === 204 ? null : res.json();
-}
+import { cachedRequestJson, invalidateApiCache, requestJson } from './httpClient';
 
 function normalizeTournament(item) {
   if (!item) {
@@ -30,11 +24,17 @@ function normalizeTournament(item) {
   };
 }
 
+function invalidateTournamentCache() {
+  invalidateApiCache((key) => key.startsWith('tournament:') || key.startsWith('leaderboard:groups:'));
+}
+
 export async function getTournaments() {
   try {
-    const data = await request('/api/tournament');
-    const tournaments = Array.isArray(data) ? data.map(normalizeTournament).filter(Boolean) : [];
-    return tournaments;
+    const data = await cachedRequestJson('/api/tournament', {
+      ttlMs: 60_000,
+      cacheKey: 'tournament:list',
+    });
+    return Array.isArray(data) ? data.map(normalizeTournament).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -42,7 +42,10 @@ export async function getTournaments() {
 
 export async function getTournamentById(id) {
   try {
-    const data = await request(`/api/tournament/${id}`);
+    const data = await cachedRequestJson(`/api/tournament/${id}`, {
+      ttlMs: 60_000,
+      cacheKey: `tournament:detail:id:${id}`,
+    });
     return normalizeTournament(data);
   } catch {
     return null;
@@ -56,15 +59,13 @@ export async function getTournamentByPublicId(publicId) {
   }
 
   try {
-    const data = await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}`);
+    const data = await cachedRequestJson(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}`, {
+      ttlMs: 60_000,
+      cacheKey: `tournament:detail:public:${normalizedPublicId}`,
+    });
     return normalizeTournament(data);
   } catch {
-    try {
-      const tournaments = await getTournaments();
-      return tournaments.find((item) => String(item?.publicId || '').trim() === normalizedPublicId) || null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
@@ -75,15 +76,13 @@ export async function getTournamentRegistrationsByPublicId(publicId) {
   }
 
   try {
-    const data = await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/registrations`);
+    const data = await cachedRequestJson(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/registrations`, {
+      ttlMs: 20_000,
+      cacheKey: `tournament:registrations:public:${normalizedPublicId}`,
+    });
     return Array.isArray(data) ? data : [];
   } catch {
-    const tournament = await getTournamentByPublicId(normalizedPublicId);
-    if (!tournament?.id) {
-      return [];
-    }
-
-    return getTournamentRegistrations(tournament.id);
+    return [];
   }
 }
 
@@ -95,19 +94,13 @@ export async function registerTeamForTournamentByPublicId(publicId, payload) {
     teamId: payload.teamId,
   });
 
-  try {
-    return await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/register`, {
-      method: 'POST',
-      body,
-    });
-  } catch {
-    const tournament = await getTournamentByPublicId(normalizedPublicId);
-    if (!tournament?.id) {
-      throw new Error('Tournament not found.');
-    }
-
-    return registerTeamForTournament(tournament.id, payload);
-  }
+  const response = await requestJson(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/register`, {
+    method: 'POST',
+    body,
+  });
+  invalidateTournamentCache();
+  invalidateApiCache((key) => key.startsWith('team:'));
+  return response;
 }
 
 export async function leaveTeamFromTournamentByPublicId(publicId, payload) {
@@ -118,58 +111,53 @@ export async function leaveTeamFromTournamentByPublicId(publicId, payload) {
     teamId: payload.teamId,
   });
 
-  try {
-    return await request(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/leave`, {
-      method: 'POST',
-      body,
-    });
-  } catch {
-    const tournament = await getTournamentByPublicId(normalizedPublicId);
-    if (!tournament?.id) {
-      throw new Error('Tournament not found.');
-    }
-
-    return leaveTeamFromTournament(tournament.id, payload);
-  }
+  const response = await requestJson(`/api/tournament/public/${encodeURIComponent(normalizedPublicId)}/leave`, {
+    method: 'POST',
+    body,
+  });
+  invalidateTournamentCache();
+  invalidateApiCache((key) => key.startsWith('team:'));
+  return response;
 }
 
 export async function createTournament(payload) {
-  try {
-    const data = await request('/api/tournament', {
-      method: 'POST',
-      body: JSON.stringify({
-        Name: payload.name,
-        Image: payload.image,
-        Description: payload.description,
-        StartDate: payload.startDate,
-        TeamSlots: payload.teamSlots,
-        Game: payload.game,
-        Region: payload.region,
-        Status: payload.status,
-        PrizePool: payload.prizePool,
-        Venue: payload.venue,
-      }),
-    });
-    return normalizeTournament(data);
-  } catch (err) {
-    throw err;
-  }
+  const data = await requestJson('/api/tournament', {
+    method: 'POST',
+    body: JSON.stringify({
+      Name: payload.name,
+      Image: payload.image,
+      Description: payload.description,
+      StartDate: payload.startDate,
+      TeamSlots: payload.teamSlots,
+      Game: payload.game,
+      Region: payload.region,
+      Status: payload.status,
+      PrizePool: payload.prizePool,
+      Venue: payload.venue,
+    }),
+  });
+  invalidateTournamentCache();
+  return normalizeTournament(data);
 }
 
 export async function updateTournament(id, payload) {
-  return request(`/api/tournament/${id}`, {
+  const response = await requestJson(`/api/tournament/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+  invalidateTournamentCache();
+  return response;
 }
 
 export async function deleteTournament(id, cascade = false) {
   const qs = cascade ? '?cascade=true' : '';
-  return request(`/api/tournament/${id}${qs}`, { method: 'DELETE' });
+  const response = await requestJson(`/api/tournament/${id}${qs}`, { method: 'DELETE' });
+  invalidateTournamentCache();
+  return response;
 }
 
 export async function registerTeamForTournament(tournamentId, payload) {
-  return request(`/api/tournament/${tournamentId}/register`, {
+  const response = await requestJson(`/api/tournament/${tournamentId}/register`, {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: payload.actorUserId ?? null,
@@ -177,10 +165,13 @@ export async function registerTeamForTournament(tournamentId, payload) {
       teamId: payload.teamId,
     }),
   });
+  invalidateTournamentCache();
+  invalidateApiCache((key) => key.startsWith('team:'));
+  return response;
 }
 
 export async function leaveTeamFromTournament(tournamentId, payload) {
-  return request(`/api/tournament/${tournamentId}/leave`, {
+  const response = await requestJson(`/api/tournament/${tournamentId}/leave`, {
     method: 'POST',
     body: JSON.stringify({
       actorUserId: payload.actorUserId ?? null,
@@ -188,11 +179,17 @@ export async function leaveTeamFromTournament(tournamentId, payload) {
       teamId: payload.teamId,
     }),
   });
+  invalidateTournamentCache();
+  invalidateApiCache((key) => key.startsWith('team:'));
+  return response;
 }
 
 export async function getTournamentRegistrations(tournamentId) {
   try {
-    const data = await request(`/api/tournament/${tournamentId}/registrations`);
+    const data = await cachedRequestJson(`/api/tournament/${tournamentId}/registrations`, {
+      ttlMs: 20_000,
+      cacheKey: `tournament:registrations:id:${tournamentId}`,
+    });
     return Array.isArray(data) ? data : [];
   } catch {
     return [];

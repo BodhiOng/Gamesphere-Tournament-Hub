@@ -3,9 +3,7 @@ using Gamesphere.Data;
 using Gamesphere.DTOs;
 using Gamesphere.Models;
 using Gamesphere.Utilities;
-using Microsoft.AspNetCore.Identity;
-using System;
-using System.Linq;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gamesphere.Controllers
 {
@@ -28,10 +26,48 @@ namespace Gamesphere.Controllers
         });
 
         [HttpGet("account-requests")]
-        public IActionResult GetAccountRequests()
+        public async Task<IActionResult> GetAccountRequests(
+            [FromQuery] string? search,
+            [FromQuery] string? status,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var requests = _ctx.AccountRequests
+            var safePage = page < 1 ? 1 : page;
+            var safePageSize = pageSize < 1 ? 10 : pageSize > 50 ? 50 : pageSize;
+            var normalizedSearch = search?.Trim();
+            var query = _ctx.AccountRequests.AsNoTracking();
+
+            var normalizedStatus = status?.Trim().ToLowerInvariant();
+            if (!string.IsNullOrWhiteSpace(normalizedStatus) && normalizedStatus != "all")
+            {
+                if (normalizedStatus == "pending")
+                {
+                    query = query.Where(item => item.Status == AccountRequestStatus.Pending);
+                }
+                else if (normalizedStatus == "approved")
+                {
+                    query = query.Where(item => item.Status == AccountRequestStatus.Approved);
+                }
+                else if (normalizedStatus == "rejected")
+                {
+                    query = query.Where(item => item.Status == AccountRequestStatus.Rejected);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedSearch))
+            {
+                var searchPattern = $"%{normalizedSearch}%";
+                query = query.Where(item =>
+                    EF.Functions.ILike(item.PublicId, searchPattern)
+                    || EF.Functions.ILike(item.Username, searchPattern)
+                    || EF.Functions.ILike(item.Email, searchPattern));
+            }
+
+            var totalItems = await query.CountAsync();
+            var requests = await query
                 .OrderByDescending(request => request.RequestedAt)
+                .Skip((safePage - 1) * safePageSize)
+                .Take(safePageSize)
                 .Select(request => new
                 {
                     id = request.PublicId,
@@ -42,9 +78,16 @@ namespace Gamesphere.Controllers
                     request.RequestedAt,
                     request.ReviewedAt
                 })
-                .ToList();
+                .ToListAsync();
 
-            return Ok(requests);
+            return Ok(new PagedResult<object>
+            {
+                Items = requests.Cast<object>().ToList(),
+                Page = safePage,
+                PageSize = safePageSize,
+                TotalItems = totalItems,
+                TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)safePageSize)
+            });
         }
 
         [HttpPost("account-requests/{id}/approve")]
@@ -172,74 +215,179 @@ namespace Gamesphere.Controllers
         }
 
         [HttpGet("reports")]
-        public IActionResult GetReports()
+        public async Task<IActionResult> GetReports(
+            [FromQuery] string? search,
+            [FromQuery] string? status,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var reports = _ctx.Reports
-                .OrderByDescending(item => item.CreatedAt)
+            var safePage = page < 1 ? 1 : page;
+            var safePageSize = pageSize < 1 ? 10 : pageSize > 50 ? 50 : pageSize;
+            var normalizedSearch = search?.Trim();
+            var normalizedStatus = status?.Trim().ToLowerInvariant();
+
+            var query = _ctx.Reports.AsNoTracking()
+                .GroupJoin(
+                    _ctx.Users.AsNoTracking(),
+                    report => report.ReportedUserPublicId,
+                    user => user.PublicId,
+                    (report, reportedUsers) => new { report, reportedUser = reportedUsers.FirstOrDefault() })
+                .GroupJoin(
+                    _ctx.Users.AsNoTracking(),
+                    item => item.report.ReporterUserPublicId,
+                    user => user.PublicId,
+                    (item, reporterUsers) => new { item.report, item.reportedUser, reporterUser = reporterUsers.FirstOrDefault() });
+
+            if (!string.IsNullOrWhiteSpace(normalizedStatus) && normalizedStatus != "all")
+            {
+                if (normalizedStatus == "pending")
+                {
+                    query = query.Where(item => item.report.Status == ReportStatus.Pending);
+                }
+                else if (normalizedStatus == "resolved")
+                {
+                    query = query.Where(item => item.report.Status == ReportStatus.Resolved);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedSearch))
+            {
+                var searchPattern = $"%{normalizedSearch}%";
+                var searchReportId = int.TryParse(normalizedSearch, out var parsedReportId)
+                    ? parsedReportId
+                    : (int?)null;
+                query = query.Where(item =>
+                    (searchReportId.HasValue && item.report.Id == searchReportId.Value)
+                    || EF.Functions.ILike(item.report.Subject, searchPattern)
+                    || (item.reportedUser != null && EF.Functions.ILike(item.reportedUser.Username, searchPattern))
+                    || (item.reporterUser != null && EF.Functions.ILike(item.reporterUser.Username, searchPattern))
+                    || EF.Functions.ILike(item.report.ReportedUserPublicId, searchPattern)
+                    || (item.report.ReporterUserPublicId != null && EF.Functions.ILike(item.report.ReporterUserPublicId, searchPattern)));
+            }
+
+            var totalItems = await query.CountAsync();
+            var reports = await query
+                .OrderByDescending(item => item.report.CreatedAt)
+                .Skip((safePage - 1) * safePageSize)
+                .Take(safePageSize)
                 .Select(item => new
                 {
-                    item.Id,
-                    item.Subject,
-                    item.Description,
-                    status = item.Status.ToString(),
-                    item.CreatedAt,
-                    item.ReviewedAt,
-                    item.ResolutionAction,
-                    reportedUserPublicId = item.ReportedUserPublicId,
-                    reportedUsername = _ctx.Users.Where(user => user.PublicId == item.ReportedUserPublicId).Select(user => user.Username).FirstOrDefault() ?? "[Deleted User]",
-                    reportedEmail = _ctx.Users.Where(user => user.PublicId == item.ReportedUserPublicId).Select(user => user.Email).FirstOrDefault(),
-                    reporterUserPublicId = item.ReporterUserPublicId,
-                    reporterUsername = !string.IsNullOrWhiteSpace(item.ReporterUserPublicId)
-                        ? _ctx.Users.Where(user => user.PublicId == item.ReporterUserPublicId).Select(user => user.Username).FirstOrDefault()
-                        : null,
-                    reporterEmail = !string.IsNullOrWhiteSpace(item.ReporterUserPublicId)
-                        ? _ctx.Users.Where(user => user.PublicId == item.ReporterUserPublicId).Select(user => user.Email).FirstOrDefault()
-                        : null
+                    item.report.Id,
+                    item.report.Subject,
+                    item.report.Description,
+                    status = item.report.Status.ToString(),
+                    item.report.CreatedAt,
+                    item.report.ReviewedAt,
+                    item.report.ResolutionAction,
+                    reportedUserPublicId = item.report.ReportedUserPublicId,
+                    reportedUsername = item.reportedUser != null ? item.reportedUser.Username : "[Deleted User]",
+                    reportedEmail = item.reportedUser != null ? item.reportedUser.Email : null,
+                    reporterUserPublicId = item.report.ReporterUserPublicId,
+                    reporterUsername = item.reporterUser != null ? item.reporterUser.Username : null,
+                    reporterEmail = item.reporterUser != null ? item.reporterUser.Email : null
                 })
-                .ToList();
+                .ToListAsync();
 
-            return Ok(reports);
+            return Ok(new PagedResult<object>
+            {
+                Items = reports.Cast<object>().ToList(),
+                Page = safePage,
+                PageSize = safePageSize,
+                TotalItems = totalItems,
+                TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)safePageSize)
+            });
         }
 
         [HttpGet("match-results")]
-        public IActionResult GetMatchResults()
+        public async Task<IActionResult> GetMatchResults(
+            [FromQuery] string? search,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var results = _ctx.MatchResults
-                .OrderBy(item => item.TournamentPublicId)
-                .ThenBy(item => item.RoundNumber)
-                .ThenByDescending(item => item.CreatedAtUtc)
+            var safePage = page < 1 ? 1 : page;
+            var safePageSize = pageSize < 1 ? 10 : pageSize > 50 ? 50 : pageSize;
+            var normalizedSearch = search?.Trim();
+
+            var tournaments = await _ctx.Tournaments.AsNoTracking()
+                .Select(item => new { item.PublicId, item.Name })
+                .ToListAsync();
+            var teams = await _ctx.Teams.AsNoTracking()
+                .Select(item => new { item.PublicId, item.Name })
+                .ToListAsync();
+            var users = await _ctx.Users.AsNoTracking()
+                .Select(item => new { item.PublicId, item.Username })
+                .ToListAsync();
+
+            var tournamentNames = tournaments.ToDictionary(item => item.PublicId, item => item.Name);
+            var teamNames = teams.ToDictionary(item => item.PublicId, item => item.Name);
+            var usernames = users.ToDictionary(item => item.PublicId, item => item.Username);
+
+            var projected = (await _ctx.MatchResults.AsNoTracking().ToListAsync())
                 .Select(item => new
                 {
                     item.Id,
                     item.PublicId,
                     item.TournamentPublicId,
-                    tournamentName = _ctx.Tournaments.Where(tournament => tournament.PublicId == item.TournamentPublicId).Select(tournament => tournament.Name).FirstOrDefault(),
+                    tournamentName = tournamentNames.GetValueOrDefault(item.TournamentPublicId),
                     item.TeamAPublicId,
-                    teamAName = _ctx.Teams.Where(team => team.PublicId == item.TeamAPublicId).Select(team => team.Name).FirstOrDefault(),
+                    teamAName = teamNames.GetValueOrDefault(item.TeamAPublicId),
                     item.TeamBPublicId,
-                    teamBName = _ctx.Teams.Where(team => team.PublicId == item.TeamBPublicId).Select(team => team.Name).FirstOrDefault(),
+                    teamBName = teamNames.GetValueOrDefault(item.TeamBPublicId),
                     item.RoundNumber,
                     item.TeamAScore,
                     item.TeamBScore,
                     item.WinnerTeamPublicId,
-                    winnerTeamName = !string.IsNullOrWhiteSpace(item.WinnerTeamPublicId)
-                        ? _ctx.Teams.Where(team => team.PublicId == item.WinnerTeamPublicId).Select(team => team.Name).FirstOrDefault()
-                        : null,
+                    winnerTeamName = string.IsNullOrWhiteSpace(item.WinnerTeamPublicId) ? null : teamNames.GetValueOrDefault(item.WinnerTeamPublicId),
                     item.ReviewedByUserPublicId,
-                    reviewedByUsername = !string.IsNullOrWhiteSpace(item.ReviewedByUserPublicId)
-                        ? _ctx.Users.Where(user => user.PublicId == item.ReviewedByUserPublicId).Select(user => user.Username).FirstOrDefault()
-                        : null,
+                    reviewedByUsername = string.IsNullOrWhiteSpace(item.ReviewedByUserPublicId) ? null : usernames.GetValueOrDefault(item.ReviewedByUserPublicId),
                     item.CreatedAtUtc
-                })
+                });
+
+            if (!string.IsNullOrWhiteSpace(normalizedSearch))
+            {
+                var searchRoundNumber = int.TryParse(normalizedSearch, out var parsedRoundNumber)
+                    ? parsedRoundNumber
+                    : (int?)null;
+
+                projected = projected.Where(item =>
+                    (item.PublicId?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.TournamentPublicId?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.tournamentName?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.TeamAPublicId?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.teamAName?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.TeamBPublicId?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.teamBName?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.WinnerTeamPublicId?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.winnerTeamName?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (item.reviewedByUsername?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (searchRoundNumber.HasValue && item.RoundNumber == searchRoundNumber.Value));
+            }
+
+            var ordered = projected
+                .OrderBy(item => item.TournamentPublicId ?? string.Empty)
+                .ThenBy(item => item.RoundNumber)
+                .ThenByDescending(item => item.CreatedAtUtc);
+
+            var totalItems = ordered.Count();
+            var results = ordered
+                .Skip((safePage - 1) * safePageSize)
+                .Take(safePageSize)
                 .ToList();
 
-            return Ok(results);
+            return Ok(new PagedResult<object>
+            {
+                Items = results.Cast<object>().ToList(),
+                Page = safePage,
+                PageSize = safePageSize,
+                TotalItems = totalItems,
+                TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)safePageSize)
+            });
         }
 
         [HttpGet("match-results/lookups")]
-        public IActionResult GetMatchResultLookups()
+        public async Task<IActionResult> GetMatchResultLookups([FromQuery] string? status = "live")
         {
-            var tournaments = _ctx.Tournaments
+            var tournaments = await _ctx.Tournaments.AsNoTracking()
                 .OrderBy(item => item.Name)
                 .Select(item => new
                 {
@@ -250,31 +398,17 @@ namespace Gamesphere.Controllers
                     item.StartDate,
                     item.TeamSlots
                 })
-                .ToList();
+                .ToListAsync();
 
-            var teams = _ctx.Teams
-                .OrderBy(item => item.Name)
-                .Select(item => new
-                {
-                    item.Id,
-                    item.PublicId,
-                    item.Name
-                })
-                .ToList();
+            var normalizedStatus = status?.Trim();
+            if (!string.IsNullOrWhiteSpace(normalizedStatus) && !string.Equals(normalizedStatus, "all", StringComparison.OrdinalIgnoreCase))
+            {
+                tournaments = tournaments
+                    .Where(item => string.Equals(item.Status?.Trim(), normalizedStatus, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
 
-            var registrations = _ctx.Registrations
-                .Join(_ctx.Teams,
-                    registration => registration.TeamId,
-                    team => team.PublicId,
-                    (registration, team) => new
-                    {
-                        registration.TournamentId,
-                        registration.TeamId,
-                        teamName = team.Name
-                    })
-                .ToList();
-
-            return Ok(new { tournaments, teams, registrations });
+            return Ok(new { tournaments });
         }
 
         [HttpPost("match-results")]

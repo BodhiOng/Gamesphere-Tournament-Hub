@@ -1,14 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-
-async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    ...options,
-  });
-  if (!res.ok) throw new Error((await res.text()) || res.statusText);
-  return res.status === 204 ? null : res.json();
-}
+import { cachedRequestJson } from './httpClient';
 
 export async function getMyMatches(user, {
   search = '', page = 1, pageSize = 8, game = 'all', status = 'all', sort = 'closest',
@@ -33,7 +23,10 @@ export async function getMyMatches(user, {
   query.set('page', String(page));
   query.set('pageSize', String(pageSize));
 
-  const data = await request(`/api/match/user-schedule?${query.toString()}`);
+  const data = await cachedRequestJson(`/api/match/user-schedule?${query.toString()}`, {
+    ttlMs: 15_000,
+    cacheKey: `match:schedule:${query.toString()}`,
+  });
   return Array.isArray(data)
     ? {
         items: data,

@@ -14,14 +14,59 @@ import TournamentDetails from '../pages/TournamentDetails/TournamentDetails';
 import Tournaments from '../pages/Tournaments/Tournaments';
 import UserProfile from '../pages/UserProfile/UserProfile';
 
-function RequireAdmin({ children }) {
-  const { user, isAuthReady, isSessionActive } = useAuth();
+function getStoredUserSnapshot() {
+  try {
+    const raw = localStorage.getItem('gs_user');
+    if (!raw) {
+      return null;
+    }
 
-  if (!isAuthReady) {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
     return null;
   }
+}
 
-  if (!user || !user.isAdmin || !isSessionActive) {
+function isUserSessionActive(user) {
+  if (!user || user.isBanned) {
+    return false;
+  }
+
+  if (!user.suspendedUntilUtc) {
+    return true;
+  }
+
+  const suspendedUntil = new Date(user.suspendedUntilUtc);
+  return Number.isNaN(suspendedUntil.getTime()) || suspendedUntil <= new Date();
+}
+
+function AdminHomeRedirect() {
+  const { user, isAuthReady, isSessionActive } = useAuth();
+  const effectiveUser = user ?? getStoredUserSnapshot();
+  const effectiveSessionActive = user ? isSessionActive : isUserSessionActive(effectiveUser);
+
+  if (!isAuthReady && !effectiveUser) {
+    return <p>Loading account...</p>;
+  }
+
+  if (effectiveUser?.isAdmin && effectiveSessionActive) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <Home />;
+}
+
+function RequireAdmin({ children }) {
+  const { user, isAuthReady, isSessionActive } = useAuth();
+  const effectiveUser = user ?? getStoredUserSnapshot();
+  const effectiveSessionActive = user ? isSessionActive : isUserSessionActive(effectiveUser);
+
+  if (!isAuthReady && !effectiveUser) {
+    return <p>Loading account...</p>;
+  }
+
+  if (!effectiveUser || !effectiveUser.isAdmin || !effectiveSessionActive) {
     return <Navigate to="/" replace />;
   }
 
@@ -30,12 +75,14 @@ function RequireAdmin({ children }) {
 
 function RequireActiveUser({ children }) {
   const { user, isAuthReady, isSessionActive } = useAuth();
+  const effectiveUser = user ?? getStoredUserSnapshot();
+  const effectiveSessionActive = user ? isSessionActive : isUserSessionActive(effectiveUser);
 
-  if (!isAuthReady) {
-    return null;
+  if (!isAuthReady && !effectiveUser) {
+    return <p>Loading account...</p>;
   }
 
-  if (!user || !isSessionActive) {
+  if (!effectiveUser || !effectiveSessionActive) {
     return <Navigate to="/" replace />;
   }
 
@@ -49,7 +96,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
 
       <Route element={<MainLayout />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<AdminHomeRedirect />} />
         <Route path="/tournaments" element={<Tournaments />} />
         <Route path="/tournaments/:publicId" element={<TournamentDetails />} />
         <Route path="/team-management" element={<RequireActiveUser><TeamManagement /></RequireActiveUser>} />

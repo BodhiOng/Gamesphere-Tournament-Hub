@@ -1,10 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Gamesphere.Data;
+using Gamesphere.DTOs;
 using Gamesphere.Models;
 using Gamesphere.Utilities;
 using Microsoft.EntityFrameworkCore;
-using System;
 
 namespace Gamesphere.Repositories
 {
@@ -13,19 +15,46 @@ namespace Gamesphere.Repositories
         private readonly AppDbContext _ctx;
         public TournamentRepository(AppDbContext ctx) => _ctx = ctx;
 
-        public IEnumerable<Tournament> GetAll()
+        private IQueryable<TournamentSummaryDTO> BuildSummaryQuery()
         {
-            // include related teams/registrations so callers can inspect counts
             return _ctx.Tournaments
-                .Include(t => t.Registrations)
-                .ToList();
+                .AsNoTracking()
+                .Select(tournament => new TournamentSummaryDTO
+                {
+                    Id = tournament.Id,
+                    PublicId = tournament.PublicId,
+                    Name = tournament.Name,
+                    Image = tournament.Image,
+                    Description = tournament.Description,
+                    Game = tournament.Game,
+                    Region = tournament.Region,
+                    Status = tournament.Status,
+                    PrizePool = tournament.PrizePool,
+                    Venue = tournament.Venue,
+                    StartDate = tournament.StartDate,
+                    TeamSlots = tournament.TeamSlots,
+                    TeamsCount = tournament.Registrations!.Count()
+                });
         }
 
-        public Tournament? Get(int id)
+        public async Task<IReadOnlyList<TournamentSummaryDTO>> GetAllAsync()
         {
-            return _ctx.Tournaments
-                .Include(t => t.Registrations)
-                .FirstOrDefault(t => t.Id == id);
+            return await BuildSummaryQuery()
+                .OrderByDescending(tournament => tournament.StartDate)
+                .ThenBy(tournament => tournament.Name)
+                .ToListAsync();
+        }
+
+        public Task<TournamentSummaryDTO?> GetAsync(int id)
+        {
+            return BuildSummaryQuery()
+                .FirstOrDefaultAsync(tournament => tournament.Id == id);
+        }
+
+        public Task<TournamentSummaryDTO?> GetByPublicIdAsync(string publicId)
+        {
+            return BuildSummaryQuery()
+                .FirstOrDefaultAsync(tournament => tournament.PublicId == publicId);
         }
 
         public void Add(Tournament t)

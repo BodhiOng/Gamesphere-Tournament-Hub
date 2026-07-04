@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getPublicMatchResultFeed } from '../../api/leaderboardApi';
+import { getPublicMatchResultFeed, getTournamentMatchResults } from '../../api/leaderboardApi';
+import { useTournament } from '../../context/TournamentContext';
 
 const PAGE_SIZE = 10;
 
@@ -36,137 +37,89 @@ function getStatusClass(value) {
 }
 
 function Leaderboards() {
-  const [matchResults, setMatchResults] = useState([]);
+  const { tournaments } = useTournament();
+  const [tournamentGroups, setTournamentGroups] = useState([]);
   const [search, setSearch] = useState('');
   const [gameFilter, setGameFilter] = useState('all');
   const [regionFilter, setRegionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [selectedTournament, setSelectedTournament] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   useEffect(() => {
-    getPublicMatchResultFeed().then(setMatchResults);
-  }, []);
+    let active = true;
+    setLoading(true);
 
-  const allTournamentGroups = useMemo(() => {
-    const allowedStatuses = new Set(['live', 'completed']);
+    getPublicMatchResultFeed({
+      search,
+      page,
+      pageSize: PAGE_SIZE,
+      game: gameFilter,
+      region: regionFilter,
+      status: statusFilter,
+    })
+      .then((data) => {
+        if (!active) {
+          return;
+        }
 
-    const byTournament = new Map();
-
-    matchResults.forEach((item) => {
-      const status = normalizeText(item?.tournament?.status);
-      if (!allowedStatuses.has(status)) {
-        return;
-      }
-
-      const tournamentKey = item?.tournament?.publicId || item?.tournament?.name || 'unknown';
-      if (!byTournament.has(tournamentKey)) {
-        byTournament.set(tournamentKey, {
-          tournament: item.tournament,
-          results: [],
-          latestCreatedAtUtc: item.createdAtUtc || null,
-        });
-      }
-
-      const group = byTournament.get(tournamentKey);
-      group.results.push(item);
-      if (!group.latestCreatedAtUtc || new Date(item.createdAtUtc || 0) > new Date(group.latestCreatedAtUtc || 0)) {
-        group.latestCreatedAtUtc = item.createdAtUtc || null;
-      }
-    });
-
-    const groups = Array.from(byTournament.values()).map((group) => {
-      const results = [...group.results].sort((left, right) => {
-        const leftTime = new Date(left?.createdAtUtc || 0).getTime();
-        const rightTime = new Date(right?.createdAtUtc || 0).getTime();
-        return rightTime - leftTime;
+        setTournamentGroups(Array.isArray(data?.items) ? data.items : []);
+        setTotalItems(data?.totalItems ?? 0);
+        setTotalPages(data?.totalPages ?? 0);
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
       });
 
-      return { ...group, results };
-    });
-
-    groups.sort((left, right) => {
-      const leftTime = new Date(left.latestCreatedAtUtc || 0).getTime();
-      const rightTime = new Date(right.latestCreatedAtUtc || 0).getTime();
-      return rightTime - leftTime;
-    });
-
-    return groups;
-  }, [matchResults]);
+    return () => {
+      active = false;
+    };
+  }, [gameFilter, page, regionFilter, search, statusFilter]);
 
   const gameOptions = useMemo(() => {
-    return [...new Set(allTournamentGroups.map((group) => group?.tournament?.game).filter(Boolean))]
+    return [...new Set((Array.isArray(tournaments) ? tournaments : []).map((item) => item?.game).filter(Boolean))]
       .sort((left, right) => left.localeCompare(right));
-  }, [allTournamentGroups]);
+  }, [tournaments]);
 
   const regionOptions = useMemo(() => {
-    return [...new Set(allTournamentGroups.map((group) => group?.tournament?.region).filter(Boolean))]
+    return [...new Set((Array.isArray(tournaments) ? tournaments : []).map((item) => item?.region).filter(Boolean))]
       .sort((left, right) => left.localeCompare(right));
-  }, [allTournamentGroups]);
-
-  const tournamentGroups = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return allTournamentGroups.filter((group) => {
-      if (statusFilter !== 'all' && normalizeText(group?.tournament?.status) !== statusFilter) {
-        return false;
-      }
-
-      if (gameFilter !== 'all' && normalizeText(group?.tournament?.game) !== gameFilter) {
-        return false;
-      }
-
-      if (regionFilter !== 'all' && normalizeText(group?.tournament?.region) !== regionFilter) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      const tournamentHaystack = [
-        group?.tournament?.name,
-        group?.tournament?.publicId,
-        group?.tournament?.status,
-        group?.tournament?.game,
-        group?.tournament?.region,
-      ]
-        .filter(Boolean)
-        .map(normalizeText);
-
-      if (tournamentHaystack.some((value) => value.includes(query))) {
-        return true;
-      }
-
-      return group.results.some((item) => [
-        item?.publicId,
-        item?.teamA?.name,
-        item?.teamB?.name,
-        item?.winner?.name,
-        item?.roundNumber,
-      ]
-        .filter(Boolean)
-        .map(normalizeText)
-        .some((value) => value.includes(query)));
-    });
-  }, [allTournamentGroups, gameFilter, regionFilter, search, statusFilter]);
-
-  const totalItems = tournamentGroups.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const start = totalItems === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const end = totalItems === 0 ? 0 : Math.min(safePage * PAGE_SIZE, totalItems);
-  const pagedGroups = tournamentGroups.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  }, [tournaments]);
 
   useEffect(() => {
     setPage(1);
   }, [gameFilter, regionFilter, search, statusFilter]);
+
+  useEffect(() => {
+    if (page > Math.max(1, totalPages)) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
+  const safePage = Math.min(page, Math.max(1, totalPages || 1));
+  const start = totalItems === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const end = totalItems === 0 ? 0 : Math.min(safePage * PAGE_SIZE, totalItems);
+
+  const handleOpenDetails = async (group) => {
+    const publicId = group?.tournament?.publicId;
+    if (!publicId) {
+      return;
+    }
+
+    setDetailsLoading(true);
+    try {
+      const details = await getTournamentMatchResults(publicId);
+      setSelectedTournament(details);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
 
   return (
     <section className="stack-list">
@@ -184,7 +137,7 @@ function Leaderboards() {
             <select value={gameFilter} onChange={(event) => setGameFilter(event.target.value)}>
               <option value="all">All games</option>
               {gameOptions.map((game) => (
-                <option key={game} value={normalizeText(game)}>{game}</option>
+                <option key={game} value={game}>{game}</option>
               ))}
             </select>
           </label>
@@ -193,7 +146,7 @@ function Leaderboards() {
             <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
               <option value="all">All regions</option>
               {regionOptions.map((region) => (
-                <option key={region} value={normalizeText(region)}>{region}</option>
+                <option key={region} value={region}>{region}</option>
               ))}
             </select>
           </label>
@@ -209,9 +162,11 @@ function Leaderboards() {
       </div>
 
       <div className="match-result-list">
-        {pagedGroups.length === 0 ? (
+        {loading ? (
+          <p className="surface-card">Loading leaderboard groups...</p>
+        ) : tournamentGroups.length === 0 ? (
           <p className="surface-card">No live or completed tournament match results match your search.</p>
-        ) : pagedGroups.map((group) => (
+        ) : tournamentGroups.map((group) => (
           <article key={group.tournament.publicId || group.tournament.name} className="surface-card match-result-item">
             <div className="match-result-item-main">
               <div className="match-result-item-header">
@@ -225,15 +180,15 @@ function Leaderboards() {
                   <div className="tournament-list-meta-chips match-result-meta-chips">
                     <span>{group.tournament.game || 'Unknown game'}</span>
                     <span>{group.tournament.region || 'Unknown region'}</span>
-                    <span>{group.results.length} match{group.results.length === 1 ? '' : 'es'}</span>
+                    <span>{group.matchCount} match{group.matchCount === 1 ? '' : 'es'}</span>
                   </div>
                 </div>
                 <div className="match-result-item-actions">
                   <span className="status-pill match-result-count-pill">
-                    {group.results.length} result{group.results.length === 1 ? '' : 's'}
+                    {group.matchCount} result{group.matchCount === 1 ? '' : 's'}
                   </span>
-                  <button type="button" className="ghost-btn" onClick={() => setSelectedTournament(group)}>
-                    View Details
+                  <button type="button" className="ghost-btn" onClick={() => handleOpenDetails(group)} disabled={detailsLoading}>
+                    {detailsLoading && selectedTournament?.tournament?.publicId === group.tournament.publicId ? 'Loading...' : 'View Details'}
                   </button>
                 </div>
               </div>
@@ -249,7 +204,7 @@ function Leaderboards() {
                 </span>
                 <span>
                   <strong>Total Matches</strong>
-                  <em>{group.results.length}</em>
+                  <em>{group.matchCount}</em>
                 </span>
               </div>
             </div>
@@ -270,12 +225,12 @@ function Leaderboards() {
           >
             Previous
           </button>
-          <span>Page {safePage} / {totalPages}</span>
+          <span>Page {safePage} / {Math.max(1, totalPages || 1)}</span>
           <button
             type="button"
             className="ghost-btn"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-            disabled={safePage >= totalPages}
+            onClick={() => setPage((current) => Math.min(Math.max(1, totalPages || 1), current + 1))}
+            disabled={safePage >= Math.max(1, totalPages || 1)}
           >
             Next
           </button>
@@ -320,7 +275,7 @@ function Leaderboards() {
               </div>
               <div className="tournament-modal-meta-item">
                 <dt>Match Count</dt>
-                <dd>{selectedTournament.results.length}</dd>
+                <dd>{selectedTournament.matchCount}</dd>
               </div>
             </dl>
 

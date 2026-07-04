@@ -12,7 +12,7 @@ import {
   suspendReportedAccount,
   updateMatchResult,
 } from '../../api/adminApi';
-import { createTournament, getTournaments, getTournamentById, updateTournament, deleteTournament } from '../../api/tournamentApi';
+import { createTournament, getTournamentRegistrationsByPublicId, getTournaments, getTournamentById, updateTournament, deleteTournament } from '../../api/tournamentApi';
 import DeleteConfirm from '../../components/DeleteConfirm/DeleteConfirm';
 import { useAuth } from '../../context/AuthContext';
 
@@ -85,11 +85,15 @@ function AdminPanel() {
   const [requestSearch, setRequestSearch] = useState('');
   const [requestStatusFilter, setRequestStatusFilter] = useState('all');
   const [requestPage, setRequestPage] = useState(1);
+  const [requestTotalItems, setRequestTotalItems] = useState(0);
+  const [requestTotalPages, setRequestTotalPages] = useState(0);
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportSearch, setReportSearch] = useState('');
   const [reportStatusFilter, setReportStatusFilter] = useState('all');
   const [reportPage, setReportPage] = useState(1);
+  const [reportTotalItems, setReportTotalItems] = useState(0);
+  const [reportTotalPages, setReportTotalPages] = useState(0);
   const [reportActionBusy, setReportActionBusy] = useState('');
   const [reportSuspendUntil, setReportSuspendUntil] = useState({});
   const [selectedReport, setSelectedReport] = useState(null);
@@ -97,18 +101,14 @@ function AdminPanel() {
   const [matchResultsLoading, setMatchResultsLoading] = useState(false);
   const [matchResultSearch, setMatchResultSearch] = useState('');
   const [matchResultPage, setMatchResultPage] = useState(1);
+  const [matchResultTotalItems, setMatchResultTotalItems] = useState(0);
+  const [matchResultTotalPages, setMatchResultTotalPages] = useState(0);
+  const [matchResultLookupsLoading, setMatchResultLookupsLoading] = useState(false);
   const [matchResultEditorOpen, setMatchResultEditorOpen] = useState(false);
   const [matchResultEditing, setMatchResultEditing] = useState(null);
   const [matchResultDeleteTarget, setMatchResultDeleteTarget] = useState(null);
   const [matchResultActionBusy, setMatchResultActionBusy] = useState('');
   const [matchResultLookups, setMatchResultLookups] = useState({ tournaments: [], teams: [], registrations: [] });
-
-  const truncateText = (value, maxLength = 140) => {
-    const text = String(value || '').trim();
-    if (!text) return '-';
-    if (text.length <= maxLength) return text;
-    return `${text.slice(0, maxLength - 1)}...`;
-  };
 
   const getRequestStatusLabel = (status) => {
     if (typeof status === 'string') {
@@ -125,37 +125,28 @@ function AdminPanel() {
     return String(status ?? '').toLowerCase();
   };
 
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadRequests() {
-      try {
-        const data = await getAccountRequests();
-        if (!ignore) {
-          setRequests(data);
-        }
-      } catch (err) {
-        if (!ignore) {
-          setError(err.message);
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadRequests();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  const refreshRequests = async () => {
+  const refreshRequests = async ({
+    page = requestPage,
+    search = requestSearch,
+    status = requestStatusFilter,
+  } = {}) => {
+    setLoading(true);
     setError('');
-    const data = await getAccountRequests();
-    setRequests(data);
+    try {
+      const data = await getAccountRequests({
+        search,
+        status,
+        page,
+        pageSize: REQUESTS_PER_PAGE,
+      });
+      setRequests(Array.isArray(data?.items) ? data.items : []);
+      setRequestTotalItems(data?.totalItems ?? 0);
+      setRequestTotalPages(data?.totalPages ?? 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -181,12 +172,23 @@ function AdminPanel() {
     }
   };
 
-  const loadReports = async () => {
+  const loadReports = async ({
+    page = reportPage,
+    search = reportSearch,
+    status = reportStatusFilter,
+  } = {}) => {
     setReportsLoading(true);
     setError('');
     try {
-      const data = await getReports();
-      setReports(Array.isArray(data) ? data : []);
+      const data = await getReports({
+        search,
+        status,
+        page,
+        pageSize: REPORTS_PER_PAGE,
+      });
+      setReports(Array.isArray(data?.items) ? data.items : []);
+      setReportTotalItems(data?.totalItems ?? 0);
+      setReportTotalPages(data?.totalPages ?? 0);
     } catch (err) {
       setError(err.message || 'Failed to load reports.');
     } finally {
@@ -194,15 +196,25 @@ function AdminPanel() {
     }
   };
 
-  const loadMatchResults = async () => {
+  const loadMatchResults = async ({
+    page = matchResultPage,
+    search = matchResultSearch,
+  } = {}) => {
     setMatchResultsLoading(true);
+    setMatchResultLookupsLoading(true);
     setError('');
     try {
       const [results, lookups] = await Promise.all([
-        getMatchResults(),
+        getMatchResults({
+          search,
+          page,
+          pageSize: MATCH_RESULTS_PER_PAGE,
+        }),
         getMatchResultLookups(),
       ]);
-      setMatchResults(Array.isArray(results) ? results : []);
+      setMatchResults(Array.isArray(results?.items) ? results.items : []);
+      setMatchResultTotalItems(results?.totalItems ?? 0);
+      setMatchResultTotalPages(results?.totalPages ?? 0);
       setMatchResultLookups({
         tournaments: Array.isArray(lookups?.tournaments) ? lookups.tournaments : [],
         teams: Array.isArray(lookups?.teams) ? lookups.teams : [],
@@ -212,6 +224,7 @@ function AdminPanel() {
       setError(err.message || 'Failed to load match results.');
     } finally {
       setMatchResultsLoading(false);
+      setMatchResultLookupsLoading(false);
     }
   };
 
@@ -264,8 +277,6 @@ function AdminPanel() {
       setMatchResultEditorOpen(false);
       setMatchResultEditing(null);
       await loadMatchResults();
-    } catch (err) {
-      throw err;
     } finally {
       setMatchResultActionBusy('');
     }
@@ -419,29 +430,9 @@ function AdminPanel() {
     tournamentPage * TOURNAMENTS_PER_PAGE,
   );
 
-  const filteredRequests = requests.filter((r) => {
-    const statusLabel = getRequestStatusLabel(r.status);
-    if (requestStatusFilter !== 'all' && statusLabel !== requestStatusFilter) {
-      return false;
-    }
-
-    const searchValue = requestSearch.trim().toLowerCase();
-    if (!searchValue) return true;
-
-    const requestId = String(r.publicId || r.id || '').toLowerCase();
-    const username = String(r.username || '').toLowerCase();
-    const email = String(r.email || '').toLowerCase();
-
-    return requestId.includes(searchValue)
-      || username.includes(searchValue)
-      || email.includes(searchValue);
-  });
-
-  const totalRequestPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PER_PAGE));
-  const paginatedRequests = filteredRequests.slice(
-    (requestPage - 1) * REQUESTS_PER_PAGE,
-    requestPage * REQUESTS_PER_PAGE,
-  );
+  const safeRequestTotalPages = Math.max(1, requestTotalPages || 1);
+  const safeReportTotalPages = Math.max(1, reportTotalPages || 1);
+  const safeMatchResultTotalPages = Math.max(1, matchResultTotalPages || 1);
 
   const loadTournaments = async () => {
     setTLoading(true);
@@ -475,38 +466,8 @@ function AdminPanel() {
   }, [tournamentPage, totalTournamentPages]);
 
   useEffect(() => {
-    // when switching to manage-users, refresh requests and reset filters so approved entries are visible
-    if (active === 'manage-users') {
-      setRequestStatusFilter('all');
-      setRequestSearch('');
-      setRequestPage(1);
-      refreshRequests();
-    }
-  }, [active]);
-
-  useEffect(() => {
-    if (active === 'moderate-reports') {
-      setReportPage(1);
-      loadReports();
-    }
-  }, [active]);
-
-  useEffect(() => {
-    if (active === 'update-matches') {
-      setMatchResultPage(1);
-      loadMatchResults();
-    }
-  }, [active]);
-
-  useEffect(() => {
     setRequestPage(1);
   }, [requestSearch, requestStatusFilter]);
-
-  useEffect(() => {
-    if (requestPage > totalRequestPages) {
-      setRequestPage(totalRequestPages);
-    }
-  }, [requestPage, totalRequestPages]);
 
   useEffect(() => {
     setReportPage(1);
@@ -516,69 +477,45 @@ function AdminPanel() {
     setSelectedImageLoadFailed(false);
   }, [selected?.id, selected?.image]);
 
-  const filteredReports = reports.filter((report) => {
-    const status = String(report?.status || '').toLowerCase();
-    if (reportStatusFilter !== 'all' && status !== reportStatusFilter) {
-      return false;
-    }
-
-    const query = reportSearch.trim().toLowerCase();
-    if (!query) {
-      return true;
-    }
-
-    const reportId = String(report?.id || '').toLowerCase();
-    const subject = String(report?.subject || '').toLowerCase();
-    const reportedUsername = String(report?.reportedUsername || report?.reportedUserPublicId || '').toLowerCase();
-    const reporterUsername = String(report?.reporterUsername || report?.reporterUserPublicId || '').toLowerCase();
-
-    return reportId.includes(query)
-      || subject.includes(query)
-      || reportedUsername.includes(query)
-      || reporterUsername.includes(query);
-  });
-
-  const totalReportPages = Math.max(1, Math.ceil(filteredReports.length / REPORTS_PER_PAGE));
-  const paginatedReports = filteredReports.slice(
-    (reportPage - 1) * REPORTS_PER_PAGE,
-    reportPage * REPORTS_PER_PAGE,
-  );
-
-  const filteredMatchResults = matchResults.filter((result) => {
-    const query = matchResultSearch.trim().toLowerCase();
-    if (!query) {
-      return true;
-    }
-
-    return String(result?.publicId || result?.id || '').toLowerCase().includes(query)
-      || String(result?.tournamentName || result?.tournamentPublicId || '').toLowerCase().includes(query)
-      || String(result?.roundNumber || '').toLowerCase().includes(query)
-      || String(result?.teamAName || result?.teamAPublicId || '').toLowerCase().includes(query)
-      || String(result?.teamBName || result?.teamBPublicId || '').toLowerCase().includes(query)
-      || String(result?.winnerTeamName || result?.winnerTeamPublicId || '').toLowerCase().includes(query);
-  });
-
-  const totalMatchResultPages = Math.max(1, Math.ceil(filteredMatchResults.length / MATCH_RESULTS_PER_PAGE));
-  const paginatedMatchResults = filteredMatchResults.slice(
-    (matchResultPage - 1) * MATCH_RESULTS_PER_PAGE,
-    matchResultPage * MATCH_RESULTS_PER_PAGE,
-  );
-
-  useEffect(() => {
-    if (reportPage > totalReportPages) {
-      setReportPage(totalReportPages);
-    }
-  }, [reportPage, totalReportPages]);
-
-  useEffect(() => {
-    if (matchResultPage > totalMatchResultPages) {
-      setMatchResultPage(totalMatchResultPages);
-    }
-  }, [matchResultPage, totalMatchResultPages]);
-
   useEffect(() => {
     setMatchResultPage(1);
   }, [matchResultSearch]);
+
+  useEffect(() => {
+    if (requestPage > safeRequestTotalPages) {
+      setRequestPage(safeRequestTotalPages);
+    }
+  }, [requestPage, safeRequestTotalPages]);
+
+  useEffect(() => {
+    if (reportPage > safeReportTotalPages) {
+      setReportPage(safeReportTotalPages);
+    }
+  }, [reportPage, safeReportTotalPages]);
+
+  useEffect(() => {
+    if (matchResultPage > safeMatchResultTotalPages) {
+      setMatchResultPage(safeMatchResultTotalPages);
+    }
+  }, [matchResultPage, safeMatchResultTotalPages]);
+
+  useEffect(() => {
+    if (active === 'manage-users') {
+      refreshRequests();
+    }
+  }, [active, requestPage, requestSearch, requestStatusFilter]);
+
+  useEffect(() => {
+    if (active === 'moderate-reports') {
+      loadReports();
+    }
+  }, [active, reportPage, reportSearch, reportStatusFilter]);
+
+  useEffect(() => {
+    if (active === 'update-matches') {
+      loadMatchResults();
+    }
+  }, [active, matchResultPage, matchResultSearch]);
 
   return (
     <div className="admin-layout">
@@ -904,11 +841,11 @@ function AdminPanel() {
             {error && <p className="error-text">{error}</p>}
 
             {(() => {
-              if (!loading && filteredRequests.length === 0) {
+              if (!loading && requests.length === 0) {
                 return <p>No account requests match your filters.</p>;
               }
 
-              return !loading && filteredRequests.length > 0 && (
+              return !loading && requests.length > 0 && (
                 <div style={{ overflowX: 'auto' }}>
                   <table className="table-shell auth-table">
                     <thead>
@@ -923,7 +860,7 @@ function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedRequests.map((req) => {
+                      {requests.map((req) => {
                         const statusLabel = getRequestStatusLabel(req.status);
                         const requestedAt = req.requestedAt ? new Date(req.requestedAt).toLocaleString() : '-';
                         const requestId = req.publicId || req.id;
@@ -969,15 +906,15 @@ function AdminPanel() {
 
                   <div className="admin-pagination-row">
                     <p className="admin-pagination-summary">
-                      Showing {filteredRequests.length === 0 ? 0 : (requestPage - 1) * REQUESTS_PER_PAGE + 1}
+                      Showing {requestTotalItems === 0 ? 0 : (requestPage - 1) * REQUESTS_PER_PAGE + 1}
                       {' '}-{' '}
-                      {Math.min(requestPage * REQUESTS_PER_PAGE, filteredRequests.length)}
-                      {' '}of {filteredRequests.length}
+                      {Math.min(requestPage * REQUESTS_PER_PAGE, requestTotalItems)}
+                      {' '}of {requestTotalItems}
                     </p>
                     <div className="admin-pagination-controls">
                       <button type="button" className="ghost-btn" disabled={requestPage <= 1} onClick={() => setRequestPage((p) => Math.max(1, p - 1))}>Previous</button>
-                      <span>Page {requestPage} of {totalRequestPages}</span>
-                      <button type="button" className="ghost-btn" disabled={requestPage >= totalRequestPages} onClick={() => setRequestPage((p) => Math.min(totalRequestPages, p + 1))}>Next</button>
+                      <span>Page {requestPage} of {safeRequestTotalPages}</span>
+                      <button type="button" className="ghost-btn" disabled={requestPage >= safeRequestTotalPages} onClick={() => setRequestPage((p) => Math.min(safeRequestTotalPages, p + 1))}>Next</button>
                     </div>
                   </div>
                 </div>
@@ -1013,9 +950,9 @@ function AdminPanel() {
             </div>
 
             {matchResultsLoading ? <p style={{ marginTop: '0.8rem' }}>Loading match results...</p> : null}
-            {!matchResultsLoading && filteredMatchResults.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No match results match your filters.</p> : null}
+            {!matchResultsLoading && matchResults.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No match results match your filters.</p> : null}
 
-            {!matchResultsLoading && filteredMatchResults.length > 0 ? (
+            {!matchResultsLoading && matchResults.length > 0 ? (
               <>
                 <div style={{ overflowX: 'auto', marginTop: '0.8rem' }}>
                   <table className="table-shell auth-table admin-data-table">
@@ -1032,7 +969,7 @@ function AdminPanel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedMatchResults.map((result) => {
+                      {matchResults.map((result) => {
                         const scoreLabel = result.teamAScore != null && result.teamBScore != null
                           ? `${result.teamAScore} - ${result.teamBScore}`
                           : '-';
@@ -1066,15 +1003,15 @@ function AdminPanel() {
 
                 <div className="admin-pagination-row">
                   <p className="admin-pagination-summary">
-                    Showing {filteredMatchResults.length === 0 ? 0 : (matchResultPage - 1) * MATCH_RESULTS_PER_PAGE + 1}
+                    Showing {matchResultTotalItems === 0 ? 0 : (matchResultPage - 1) * MATCH_RESULTS_PER_PAGE + 1}
                     {' '}-{' '}
-                    {Math.min(matchResultPage * MATCH_RESULTS_PER_PAGE, filteredMatchResults.length)}
-                    {' '}of {filteredMatchResults.length}
+                    {Math.min(matchResultPage * MATCH_RESULTS_PER_PAGE, matchResultTotalItems)}
+                    {' '}of {matchResultTotalItems}
                   </p>
                   <div className="admin-pagination-controls">
                     <button type="button" className="ghost-btn" disabled={matchResultPage <= 1} onClick={() => setMatchResultPage((page) => Math.max(1, page - 1))}>Previous</button>
-                    <span>Page {matchResultPage} of {totalMatchResultPages}</span>
-                    <button type="button" className="ghost-btn" disabled={matchResultPage >= totalMatchResultPages} onClick={() => setMatchResultPage((page) => Math.min(totalMatchResultPages, page + 1))}>Next</button>
+                    <span>Page {matchResultPage} of {safeMatchResultTotalPages}</span>
+                    <button type="button" className="ghost-btn" disabled={matchResultPage >= safeMatchResultTotalPages} onClick={() => setMatchResultPage((page) => Math.min(safeMatchResultTotalPages, page + 1))}>Next</button>
                   </div>
                 </div>
               </>
@@ -1084,6 +1021,7 @@ function AdminPanel() {
               <MatchResultEditor
                 initialValue={matchResultEditing}
                 lookups={matchResultLookups}
+                lookupsLoading={matchResultLookupsLoading}
                 busy={matchResultActionBusy === (matchResultEditing ? `save:${matchResultEditing.id}` : 'create')}
                 onCancel={() => {
                   setMatchResultEditorOpen(false);
@@ -1130,9 +1068,9 @@ function AdminPanel() {
             </div>
 
             {reportsLoading ? <p style={{ marginTop: '0.8rem' }}>Loading reports...</p> : null}
-            {!reportsLoading && filteredReports.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No reports match your filters.</p> : null}
+            {!reportsLoading && reports.length === 0 ? <p style={{ marginTop: '0.8rem' }}>No reports match your filters.</p> : null}
 
-            {!reportsLoading && filteredReports.length > 0 ? (
+            {!reportsLoading && reports.length > 0 ? (
               <div style={{ overflowX: 'auto', marginTop: '0.8rem' }}>
                 <table className="table-shell auth-table">
                   <thead>
@@ -1148,7 +1086,7 @@ function AdminPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedReports.map((report) => {
+                    {reports.map((report) => {
                       const createdAtLabel = report.createdAt ? new Date(report.createdAt).toLocaleString() : '-';
                       const isResolved = String(report.status || '').toLowerCase() === 'resolved';
                       const suspendInputValue = reportSuspendUntil[report.id] || '';
@@ -1192,15 +1130,15 @@ function AdminPanel() {
 
                 <div className="admin-pagination-row">
                   <p className="admin-pagination-summary">
-                    Showing {filteredReports.length === 0 ? 0 : (reportPage - 1) * REPORTS_PER_PAGE + 1}
+                    Showing {reportTotalItems === 0 ? 0 : (reportPage - 1) * REPORTS_PER_PAGE + 1}
                     {' '}-{' '}
-                    {Math.min(reportPage * REPORTS_PER_PAGE, filteredReports.length)}
-                    {' '}of {filteredReports.length}
+                    {Math.min(reportPage * REPORTS_PER_PAGE, reportTotalItems)}
+                    {' '}of {reportTotalItems}
                   </p>
                   <div className="admin-pagination-controls">
                     <button type="button" className="ghost-btn" disabled={reportPage <= 1} onClick={() => setReportPage((page) => Math.max(1, page - 1))}>Previous</button>
-                    <span>Page {reportPage} of {totalReportPages}</span>
-                    <button type="button" className="ghost-btn" disabled={reportPage >= totalReportPages} onClick={() => setReportPage((page) => Math.min(totalReportPages, page + 1))}>Next</button>
+                    <span>Page {reportPage} of {safeReportTotalPages}</span>
+                    <button type="button" className="ghost-btn" disabled={reportPage >= safeReportTotalPages} onClick={() => setReportPage((page) => Math.min(safeReportTotalPages, page + 1))}>Next</button>
                   </div>
                 </div>
               </div>
@@ -1300,49 +1238,127 @@ function AdminPanel() {
   );
 }
 
-function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [], registrations: [] }, busy, onCancel, onSave }) {
+function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [], registrations: [] }, lookupsLoading = false, busy, onCancel, onSave }) {
   const [error, setError] = useState('');
   const [tournamentPublicId, setTournamentPublicId] = useState(initialValue?.tournamentPublicId || '');
+  const [tournamentQuery, setTournamentQuery] = useState('');
+  const [tournamentSuggestionsOpen, setTournamentSuggestionsOpen] = useState(false);
+  const [editorTournaments, setEditorTournaments] = useState([]);
+  const [editorTournamentsLoading, setEditorTournamentsLoading] = useState(false);
   const [roundNumber, setRoundNumber] = useState(initialValue?.roundNumber ?? '');
   const [teamAPublicId, setTeamAPublicId] = useState(initialValue?.teamAPublicId || '');
   const [teamBPublicId, setTeamBPublicId] = useState(initialValue?.teamBPublicId || '');
   const [teamAScore, setTeamAScore] = useState(initialValue?.teamAScore ?? '');
   const [teamBScore, setTeamBScore] = useState(initialValue?.teamBScore ?? '');
   const [winnerTeamPublicId, setWinnerTeamPublicId] = useState(initialValue?.winnerTeamPublicId || '');
-  const tournaments = Array.isArray(lookups.tournaments) ? lookups.tournaments : [];
-  const teams = Array.isArray(lookups.teams) ? lookups.teams : [];
-  const registrations = Array.isArray(lookups.registrations) ? lookups.registrations : [];
+  const [registeredTeams, setRegisteredTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const parentTournaments = Array.isArray(lookups.tournaments) ? lookups.tournaments : [];
+  const tournaments = editorTournaments.length > 0 || editorTournamentsLoading ? editorTournaments : parentTournaments;
   const selectedTournament = tournaments.find((tournament) => tournament.publicId === tournamentPublicId) || null;
   const teamSlotCount = Number(selectedTournament?.teamSlots ?? 2);
   const maxRounds = Math.max(1, Math.ceil(Math.log2(Math.max(2, Number.isFinite(teamSlotCount) ? teamSlotCount : 2))));
   const roundOptions = Array.from({ length: maxRounds }, (_, index) => index + 1);
-  const registeredTeamPublicIds = useMemo(() => {
+  const registeredTeamPublicIds = useMemo(
+    () => new Set(registeredTeams.map((team) => String(team?.publicId || '').trim()).filter(Boolean)),
+    [registeredTeams],
+  );
+  const filteredTournamentOptions = useMemo(() => {
+    const query = tournamentQuery.trim().toLowerCase();
+    if (!query) {
+      return tournaments.slice(0, 8);
+    }
+
+    return tournaments.filter((tournament) => {
+      const name = String(tournament?.name || '').toLowerCase();
+      const publicId = String(tournament?.publicId || '').toLowerCase();
+      return name.includes(query) || publicId.includes(query);
+    });
+  }, [tournaments, tournamentQuery]);
+
+  useEffect(() => {
+    let ignore = false;
+    setEditorTournamentsLoading(true);
+
+    getMatchResultLookups({ status: 'live', force: true })
+      .then((data) => {
+        if (ignore) {
+          return;
+        }
+
+        setEditorTournaments(Array.isArray(data?.tournaments) ? data.tournaments : []);
+      })
+      .catch(() => {
+        if (!ignore) {
+          setEditorTournaments([]);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setEditorTournamentsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!tournamentPublicId) {
-      return new Set();
+      setTournamentQuery('');
+      return;
     }
 
-    return new Set(
-      registrations
-        .filter((registration) => String(registration?.tournamentId || '') === tournamentPublicId)
-        .map((registration) => String(registration?.teamId || '').trim())
-        .filter(Boolean),
-    );
-  }, [registrations, tournamentPublicId]);
-  const registeredTeams = useMemo(() => {
-    const allowedTeamIds = registeredTeamPublicIds;
-    if (!allowedTeamIds.size) {
-      return [];
+    const resolvedTournament = tournaments.find((tournament) => tournament.publicId === tournamentPublicId);
+    setTournamentQuery(resolvedTournament ? `${resolvedTournament.name} (${resolvedTournament.publicId})` : tournamentPublicId);
+  }, [tournamentPublicId, tournaments]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    if (!tournamentPublicId) {
+      setRegisteredTeams([]);
+      setTeamsLoading(false);
+      return () => {
+        ignore = true;
+      };
     }
 
-    return teams.filter((team) => allowedTeamIds.has(String(team?.publicId || '').trim()));
-  }, [teams, registeredTeamPublicIds]);
-  const teamBOptions = useMemo(() => {
-    if (!teamAPublicId) {
-      return registeredTeams;
-    }
+    setTeamsLoading(true);
+    getTournamentRegistrationsByPublicId(tournamentPublicId)
+      .then((items) => {
+        if (ignore) {
+          return;
+        }
 
-    return registeredTeams.filter((team) => team.publicId !== teamAPublicId);
-  }, [registeredTeams, teamAPublicId]);
+        const nextTeams = Array.isArray(items)
+          ? items
+            .map((item) => ({
+              id: item?.teamId ?? null,
+              publicId: String(item?.teamPublicId || '').trim(),
+              name: item?.teamName || '-',
+            }))
+            .filter((item) => item.publicId)
+          : [];
+
+        setRegisteredTeams(nextTeams);
+      })
+      .catch(() => {
+        if (!ignore) {
+          setRegisteredTeams([]);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setTeamsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [tournamentPublicId]);
 
   useEffect(() => {
     if (teamAPublicId && !registeredTeamPublicIds.has(teamAPublicId)) {
@@ -1395,28 +1411,95 @@ function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [
             <button type="button" className="ghost-btn" onClick={onCancel}>Cancel</button>
           </div>
 
-          {tournaments.length === 0 ? (
+          {lookupsLoading || editorTournamentsLoading ? (
             <p style={{ marginTop: '0.9rem' }}>Loading tournament options...</p>
+          ) : tournaments.length === 0 ? (
+            <p style={{ marginTop: '0.9rem' }}>No live tournaments are available.</p>
           ) : null}
 
           <form onSubmit={handleSubmit} className="tournament-modal-form" style={{ marginTop: '1rem' }}>
             <label>
               Tournament
-              <select
-                value={tournamentPublicId}
-                onChange={(event) => {
-                  setTournamentPublicId(event.target.value);
-                  setRoundNumber('');
-                }}
-                required
-              >
-                <option value="">Select tournament</option>
-                {tournaments.map((tournament) => (
-                  <option key={tournament.publicId || tournament.id} value={tournament.publicId}>
-                    {tournament.name} ({tournament.publicId})
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative', display: 'grid', gap: '0.45rem' }}>
+                <input
+                  type="search"
+                  value={tournamentQuery}
+                  onFocus={() => setTournamentSuggestionsOpen(true)}
+                  onBlur={() => window.setTimeout(() => setTournamentSuggestionsOpen(false), 120)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setTournamentQuery(value);
+                    setTournamentPublicId('');
+                    setRoundNumber('');
+                    setTeamAPublicId('');
+                    setTeamBPublicId('');
+                    setWinnerTeamPublicId('');
+                    setTournamentSuggestionsOpen(true);
+                    const exactMatch = tournaments.find((tournament) =>
+                      String(tournament.name || '').trim().toLowerCase() === value.trim().toLowerCase()
+                      || String(tournament.publicId || '').trim().toLowerCase() === value.trim().toLowerCase()
+                    );
+                    if (exactMatch) {
+                      setTournamentPublicId(exactMatch.publicId);
+                      setRoundNumber('');
+                      setTeamAPublicId('');
+                      setTeamBPublicId('');
+                      setWinnerTeamPublicId('');
+                    }
+                  }}
+                  placeholder="Type tournament name or ID..."
+                  disabled={lookupsLoading || editorTournamentsLoading}
+                />
+                {tournamentSuggestionsOpen && !lookupsLoading && !editorTournamentsLoading ? (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      right: 0,
+                      zIndex: 10,
+                      border: '1px solid var(--panel-border)',
+                      borderRadius: '10px',
+                      background: 'rgba(8, 22, 40, 0.98)',
+                      maxHeight: '220px',
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {filteredTournamentOptions.length > 0 ? filteredTournamentOptions.map((tournament) => (
+                      <button
+                        key={tournament.publicId || tournament.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setTournamentPublicId(tournament.publicId);
+                          setTournamentQuery(`${tournament.name} (${tournament.publicId})`);
+                          setTournamentSuggestionsOpen(false);
+                          setRoundNumber('');
+                          setTeamAPublicId('');
+                          setTeamBPublicId('');
+                          setWinnerTeamPublicId('');
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '0.65rem 0.75rem',
+                          border: '0',
+                          background: 'transparent',
+                          color: 'var(--ink)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div>{tournament.name}</div>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{tournament.publicId}</div>
+                      </button>
+                    )) : (
+                      <div style={{ padding: '0.65rem 0.75rem', color: 'var(--muted)' }}>
+                        {tournaments.length === 0 ? 'No live tournaments are available.' : 'No tournament matches.'}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </label>
 
             <label>
@@ -1433,8 +1516,10 @@ function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [
 
             <label>
               Team A
-              <select value={teamAPublicId} onChange={(event) => setTeamAPublicId(event.target.value)} required disabled={!tournamentPublicId || registeredTeams.length === 0}>
-                <option value="">Select Team A</option>
+              <select value={teamAPublicId} onChange={(event) => setTeamAPublicId(event.target.value)} required disabled={!tournamentPublicId || teamsLoading || registeredTeams.length === 0}>
+                <option value="">
+                  {!tournamentPublicId ? 'Select tournament first' : teamsLoading ? 'Loading teams...' : 'Select Team A'}
+                </option>
                 {registeredTeams.map((team) => (
                   <option key={team.publicId || team.id} value={team.publicId}>
                     {team.name} ({team.publicId})
@@ -1445,13 +1530,17 @@ function MatchResultEditor({ initialValue, lookups = { tournaments: [], teams: [
 
             <label>
               Team B
-              <select value={teamBPublicId} onChange={(event) => setTeamBPublicId(event.target.value)} required disabled={!tournamentPublicId || registeredTeams.length === 0}>
-                <option value="">Select Team B</option>
-                {teamBOptions.map((team) => (
-                  <option key={team.publicId || team.id} value={team.publicId}>
-                    {team.name} ({team.publicId})
-                  </option>
-                ))}
+              <select value={teamBPublicId} onChange={(event) => setTeamBPublicId(event.target.value)} required disabled={!tournamentPublicId || teamsLoading || registeredTeams.length === 0}>
+                <option value="">
+                  {!tournamentPublicId ? 'Select tournament first' : teamsLoading ? 'Loading teams...' : 'Select Team B'}
+                </option>
+                {registeredTeams
+                  .filter((team) => team.publicId !== teamAPublicId)
+                  .map((team) => (
+                    <option key={team.publicId || team.id} value={team.publicId}>
+                      {team.name} ({team.publicId})
+                    </option>
+                  ))}
               </select>
             </label>
 

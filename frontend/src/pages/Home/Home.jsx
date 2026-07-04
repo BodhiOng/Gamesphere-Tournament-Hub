@@ -27,19 +27,19 @@ function Home() {
   const navigate = useNavigate();
   const tournamentsTrackRef = useRef(null);
   const leaderboardTrackRef = useRef(null);
-  const [matchResults, setMatchResults] = useState([]);
+  const [leaderboardGroups, setLeaderboardGroups] = useState([]);
 
   useEffect(() => {
     let active = true;
-    getPublicMatchResultFeed()
+    getPublicMatchResultFeed({ page: 1, pageSize: 10 })
       .then((data) => {
         if (active) {
-          setMatchResults(Array.isArray(data) ? data : []);
+          setLeaderboardGroups(Array.isArray(data?.items) ? data.items : []);
         }
       })
       .catch(() => {
         if (active) {
-          setMatchResults([]);
+          setLeaderboardGroups([]);
         }
       });
 
@@ -73,38 +73,7 @@ function Home() {
       .slice(0, 10);
   }, [tournaments]);
 
-  const leaderboardCards = useMemo(() => {
-    const groups = new Map();
-
-    matchResults.forEach((item) => {
-      const tournamentKey = item?.tournament?.publicId || item?.tournament?.name || 'unknown';
-      if (!groups.has(tournamentKey)) {
-        groups.set(tournamentKey, {
-          tournament: item.tournament,
-          results: [],
-          latestCreatedAtUtc: item.createdAtUtc || null,
-        });
-      }
-
-      const group = groups.get(tournamentKey);
-      group.results.push(item);
-      if (!group.latestCreatedAtUtc || new Date(item.createdAtUtc || 0) > new Date(group.latestCreatedAtUtc || 0)) {
-        group.latestCreatedAtUtc = item.createdAtUtc || null;
-      }
-    });
-
-    return Array.from(groups.values())
-      .filter((group) => {
-        const status = normalizeText(group?.tournament?.status);
-        return status === 'live' || status === 'completed';
-      })
-      .map((group) => ({
-        ...group,
-        results: [...group.results].sort((left, right) => new Date(right?.createdAtUtc || 0) - new Date(left?.createdAtUtc || 0)),
-      }))
-      .sort((left, right) => new Date(right.latestCreatedAtUtc || 0) - new Date(left.latestCreatedAtUtc || 0))
-      .slice(0, 10);
-  }, [matchResults]);
+  const leaderboardCards = useMemo(() => leaderboardGroups, [leaderboardGroups]);
 
   const scrollCarousel = (ref, direction) => {
     ref.current?.scrollBy({ left: direction * CAROUSEL_STEP, behavior: 'smooth' });
@@ -227,7 +196,7 @@ function Home() {
                   </div>
                   <p>{group.tournament?.game || 'Unknown game'} · {group.tournament?.region || 'Unknown region'}</p>
                   <ul className="detail-list">
-                    <li>Matches: {group.results.length}</li>
+                    <li>Matches: {group.matchCount}</li>
                     <li>Latest update: {formatDate(group.latestCreatedAtUtc)}</li>
                     <li>Public leaderboard feed</li>
                   </ul>

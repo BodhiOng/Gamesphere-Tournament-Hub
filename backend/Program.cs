@@ -16,6 +16,10 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddResponseCompression(options =>
+{
+	options.EnableForHttps = true;
+});
 
 // CORS: allow frontend dev server
 var frontendOrigin = builder.Configuration["Frontend:Origin"] ?? "http://localhost:5173";
@@ -47,6 +51,7 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseMiddleware<ErrorHandlerMiddleware>();
+app.UseResponseCompression();
 app.UseCors("DefaultCors");
 app.UseMiddleware<JwtMiddleware>();
 

@@ -1,18 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-
-async function request(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    ...options,
-  });
-
-  if (!res.ok) {
-    throw new Error((await res.text()) || res.statusText);
-  }
-
-  return res.status === 204 ? null : res.json();
-}
+import { cachedRequestJson, invalidateApiCache, requestJson } from './httpClient';
 
 function normalizeUserProfile(item) {
   if (!item || typeof item !== 'object') {
@@ -80,7 +66,7 @@ function normalizePublicUserProfile(payload) {
   };
 }
 
-export async function getCurrentUserProfile(user) {
+export async function getCurrentUserProfile(user, { force = false } = {}) {
   if (!user) {
     return null;
   }
@@ -95,7 +81,11 @@ export async function getCurrentUserProfile(user) {
   }
 
   const suffix = query.toString();
-  const data = await request(`/api/user/me${suffix ? `?${suffix}` : ''}`);
+  const data = await cachedRequestJson(`/api/user/me${suffix ? `?${suffix}` : ''}`, {
+    ttlMs: 15_000,
+    cacheKey: `user:profile:me:${suffix || 'current'}`,
+    force,
+  });
   return normalizeUserProfile(data);
 }
 
@@ -114,7 +104,7 @@ export async function updateCurrentUserProfile(user, payload) {
   }
 
   const suffix = query.toString();
-  const data = await request(`/api/user/me${suffix ? `?${suffix}` : ''}`,
+  const data = await requestJson(`/api/user/me${suffix ? `?${suffix}` : ''}`,
     {
       method: 'PUT',
       body: JSON.stringify({
@@ -123,6 +113,7 @@ export async function updateCurrentUserProfile(user, payload) {
         email: payload.email,
       }),
     });
+  invalidateApiCache((key) => key.startsWith('user:profile:'));
 
   return normalizeUserProfile(data);
 }
@@ -135,10 +126,13 @@ export async function getPublicUserProfile(userPublicId) {
 
   let data;
   try {
-    data = await request(`/api/user/public/${encodeURIComponent(publicId)}`);
+    data = await cachedRequestJson(`/api/user/public/${encodeURIComponent(publicId)}`, {
+      ttlMs: 30_000,
+      cacheKey: `user:profile:public:${publicId}`,
+    });
   } catch (err) {
     if (err?.message === 'Not Found') {
-      throw new Error('User profile endpoint is unavailable. Restart the backend and try again.');
+      throw new Error('User profile endpoint is unavailable. Restart the backend and try again.', { cause: err });
     }
 
     throw err;
@@ -173,7 +167,7 @@ export async function createUserReport(actorUser, payload) {
     throw new Error('Report description is required.');
   }
 
-  return request('/api/report', {
+  const response = await requestJson('/api/report', {
     method: 'POST',
     body: JSON.stringify({
       reporterUserPublicId: actorUser.publicId,
@@ -183,4 +177,6 @@ export async function createUserReport(actorUser, payload) {
       description,
     }),
   });
+  invalidateApiCache((key) => key.startsWith('admin:reports:'));
+  return response;
 }
