@@ -2060,8 +2060,10 @@ button {
 
 .tournament-modal-image-panel {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.55rem;
 }
 
 .tournament-modal-image {
@@ -2088,6 +2090,13 @@ button {
   font-weight: 700;
   line-height: 1;
   color: var(--ink);
+}
+
+.tournament-modal-image-link {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  word-break: break-all;
 }
 
 .tournament-modal-copy-panel h4 {

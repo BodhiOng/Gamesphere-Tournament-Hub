@@ -12,6 +12,7 @@ import {
   suspendReportedAccount,
   updateMatchResult,
 } from '../../api/adminApi';
+import { uploadImage } from '../../api/mediaApi';
 import { createTournament, getTournamentRegistrationsByPublicId, getTournaments, getTournamentById, updateTournament, deleteTournament } from '../../api/tournamentApi';
 import DeleteConfirm from '../../components/DeleteConfirm/DeleteConfirm';
 import { useAuth } from '../../context/AuthContext';
@@ -299,11 +300,13 @@ function AdminPanel() {
   // Create tournament form state
   const [tName, setTName] = useState('');
   const [tImage, setTImage] = useState('');
+  const [tImageFile, setTImageFile] = useState(null);
   const [tDescription, setTDescription] = useState('');
   const [tStartDate, setTStartDate] = useState('');
   const [tStartTime, setTStartTime] = useState('');
   const [tSlots, setTSlots] = useState(16);
   const [creating, setCreating] = useState(false);
+  const [createUploading, setCreateUploading] = useState(false);
   const [createError, setCreateError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -329,9 +332,17 @@ function AdminPanel() {
         return;
       }
 
+      let imageUrl = tImage || null;
+      if (tImageFile) {
+        setCreateUploading(true);
+        const storedFile = await uploadImage(tImageFile, 'tournaments');
+        imageUrl = storedFile?.url || null;
+        setCreateUploading(false);
+      }
+
       const payload = {
         name: tName,
-        image: tImage || null,
+        image: imageUrl,
         description: tDescription || null,
         startDate: startDateTime,
         teamSlots: Number(tSlots),
@@ -339,12 +350,13 @@ function AdminPanel() {
         region: tRegion || null,
         status: tStatus || null,
         prizePool: tPrize !== '' ? String(tPrize) : null,
-        Venue: tVenue || null,
+        venue: tVenue || null,
       };
 
       await createTournament(payload);
       setTName('');
       setTImage('');
+      setTImageFile(null);
       setTDescription('');
       setTStartDate('');
       setTStartTime('');
@@ -355,10 +367,11 @@ function AdminPanel() {
       setTPrize('');
       setTVenue('');
       await loadTournaments();
-      // optionally refresh tournaments list (not implemented)
+      setCreateOpen(false);
     } catch (err) {
       setCreateError(err.message || 'Failed to create tournament');
     } finally {
+      setCreateUploading(false);
       setCreating(false);
     }
   };
@@ -630,7 +643,7 @@ function AdminPanel() {
                       </div>
                     </div>
 
-                    <form onSubmit={async (e) => { await handleCreateTournament(e); setCreateOpen(false); }} className="tournament-modal-form">
+                    <form onSubmit={handleCreateTournament} className="tournament-modal-form">
                       <label>
                         Tournament name
                         <input value={tName} onChange={(e) => setTName(e.target.value)} placeholder="Name" required />
@@ -639,6 +652,18 @@ function AdminPanel() {
                       <label>
                         Image URL
                         <input value={tImage} onChange={(e) => setTImage(e.target.value)} placeholder="https://..." />
+                      </label>
+
+                      <label>
+                        Upload image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setTImageFile(e.target.files?.[0] ?? null)}
+                        />
+                        <small style={{ color: 'var(--muted)' }}>
+                          {tImageFile ? `Selected: ${tImageFile.name}. Uploaded file will override the URL above.` : 'Optional. Upload to store the image in S3.'}
+                        </small>
                       </label>
 
                       <label className="field-full">
@@ -700,7 +725,9 @@ function AdminPanel() {
                       {createError && <p className="error-text field-full">{createError}</p>}
 
                       <div className="cta-row field-full">
-                        <button type="submit" className="primary-btn" disabled={creating}>Create Tournament</button>
+                        <button type="submit" className="primary-btn" disabled={creating || createUploading}>
+                          {createUploading ? 'Uploading image...' : creating ? 'Creating...' : 'Create Tournament'}
+                        </button>
                       </div>
                     </form>
                   </section>
@@ -1582,6 +1609,7 @@ function EditTournament({ id, onClose }) {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [image, setImage] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -1591,6 +1619,8 @@ function EditTournament({ id, onClose }) {
   const [status, setStatus] = useState('');
   const [prizePool, setPrizePool] = useState('');
   const [venue, setVenue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -1624,6 +1654,7 @@ function EditTournament({ id, onClose }) {
   const handleSave = async (e) => {
     e.preventDefault();
     setError('');
+    setSaving(true);
     try {
       const startDateTime = composeLocalDateTime(startDate, startTime);
       if (!startDateTime) {
@@ -1631,9 +1662,17 @@ function EditTournament({ id, onClose }) {
         return;
       }
 
+      let imageUrl = image || null;
+      if (imageFile) {
+        setUploading(true);
+        const storedFile = await uploadImage(imageFile, 'tournaments');
+        imageUrl = storedFile?.url || null;
+        setUploading(false);
+      }
+
       await updateTournament(id, {
         Name: name,
-        Image: image || null,
+        Image: imageUrl,
         Description: description || null,
         StartDate: startDateTime,
         TeamSlots: Number(teamSlots),
@@ -1646,6 +1685,9 @@ function EditTournament({ id, onClose }) {
       onClose();
     } catch (err) {
       setError(err.message || 'Failed to update');
+    } finally {
+      setUploading(false);
+      setSaving(false);
     }
   };
 
@@ -1672,6 +1714,18 @@ function EditTournament({ id, onClose }) {
               <label>
                 Image URL
                 <input value={image} onChange={(e) => setImage(e.target.value)} />
+              </label>
+
+              <label>
+                Upload image
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                />
+                <small style={{ color: 'var(--muted)' }}>
+                  {imageFile ? `Selected: ${imageFile.name}. Uploaded file will override the URL above.` : 'Optional. Upload to store the image in S3.'}
+                </small>
               </label>
 
               <label className="field-full">
@@ -1733,7 +1787,9 @@ function EditTournament({ id, onClose }) {
               {error && <p className="error-text field-full">{error}</p>}
 
               <div className="cta-row field-full">
-                <button type="submit" className="primary-btn">Save</button>
+                <button type="submit" className="primary-btn" disabled={saving || uploading}>
+                  {uploading ? 'Uploading image...' : saving ? 'Saving...' : 'Save'}
+                </button>
               </div>
             </form>
           )}

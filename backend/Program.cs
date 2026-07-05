@@ -20,6 +20,7 @@ builder.Services.AddResponseCompression(options =>
 {
 	options.EnableForHttps = true;
 });
+builder.Services.Configure<S3StorageOptions>(builder.Configuration.GetSection("AWS:S3"));
 
 // CORS: allow frontend dev server
 var frontendOrigin = builder.Configuration["Frontend:Origin"] ?? "http://localhost:5173";
@@ -42,6 +43,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Application services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IFileStorageService, S3FileStorageService>();
 builder.Services.AddScoped<ITournamentRepository, Gamesphere.Repositories.TournamentRepository>();
 builder.Services.AddScoped<ITournamentService, Gamesphere.Services.TournamentService>();
 builder.Services.AddScoped<ITeamRepository, Gamesphere.Repositories.TeamRepository>();

@@ -33,6 +33,11 @@ function Field({ label, value }) {
   );
 }
 
+function isLikelyUploadedImageUrl(url) {
+  const value = String(url || '').trim();
+  return value.includes('amazonaws.com/') || value.includes('.s3.');
+}
+
 function TournamentDetails() {
   const { publicId } = useParams();
   const { user } = useAuth();
@@ -263,11 +268,17 @@ function TournamentDetails() {
                 No tournament image
               </div>
             )}
+            {tournament.image && isLikelyUploadedImageUrl(tournament.image) ? (
+              <p className="tournament-modal-image-link">
+                Image link: <a href={tournament.image} target="_blank" rel="noreferrer">Open uploaded image</a>
+              </p>
+            ) : null}
           </div>
 
           <div>
             {tournament.description ? (
               <div
+                className="tournament-modal-description"
                 style={{
                   maxHeight: '220px',
                   overflowY: 'auto',

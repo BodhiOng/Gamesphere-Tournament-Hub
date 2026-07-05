@@ -25,6 +25,18 @@ function Assert-WorkspacePath {
   return $resolved
 }
 
+function Sync-FolderContents {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Source,
+    [Parameter(Mandatory = $true)]
+    [string]$Destination
+  )
+
+  Get-ChildItem -LiteralPath $Destination -Force | Remove-Item -Recurse -Force
+  Copy-Item -Path (Join-Path $Source '*') -Destination $Destination -Recurse -Force
+}
+
 Write-Host 'Building frontend...'
 Push-Location $frontend
 try {
@@ -47,8 +59,7 @@ if (-not (Test-Path -LiteralPath $resolvedWwwroot)) {
 }
 
 Write-Host 'Syncing frontend dist into backend wwwroot...'
-Get-ChildItem -LiteralPath $resolvedWwwroot -Force | Remove-Item -Recurse -Force
-Copy-Item -Path (Join-Path $frontendDist '*') -Destination $resolvedWwwroot -Recurse -Force
+Sync-FolderContents -Source $frontendDist -Destination $resolvedWwwroot
 
 Write-Host 'Publishing backend...'
 if (Test-Path -LiteralPath $publishOut) {
@@ -64,5 +75,12 @@ try {
 finally {
   Pop-Location
 }
+
+Write-Host 'Syncing frontend dist into publish output...'
+$publishWwwroot = Join-Path $publishOut 'wwwroot'
+if (-not (Test-Path -LiteralPath $publishWwwroot)) {
+  New-Item -ItemType Directory -Path $publishWwwroot -Force | Out-Null
+}
+Sync-FolderContents -Source $frontendDist -Destination $publishWwwroot
 
 Write-Host "Done. Publish output is in $publishOut"

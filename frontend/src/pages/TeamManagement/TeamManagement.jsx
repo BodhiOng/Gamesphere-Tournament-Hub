@@ -19,6 +19,7 @@ import {
   requestTeamJoin,
   updateTeamProfile,
 } from '../../api/teamApi';
+import { uploadImage } from '../../api/mediaApi';
 import { useAuth } from '../../context/AuthContext';
 
 function TeamManagement() {
@@ -67,6 +68,7 @@ function TeamManagement() {
     captainUserId: null,
   });
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
   const [teamName, setTeamName] = useState('');
   const [memberLimitInput, setMemberLimitInput] = useState('');
   const [memberLimitError, setMemberLimitError] = useState('');
@@ -84,6 +86,7 @@ function TeamManagement() {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [savingAction, setSavingAction] = useState('');
+  const [logoUploadBusy, setLogoUploadBusy] = useState(false);
   const noticeTimerRef = useRef(null);
   const { user, updateUser } = useAuth();
 
@@ -194,6 +197,7 @@ function TeamManagement() {
   useEffect(() => {
     if (!isAssigned) {
       setLogoUrl('');
+      setLogoFile(null);
       setDescription('');
       setMemberLimitInput('');
       setMemberLimitError('');
@@ -808,7 +812,7 @@ function TeamManagement() {
       return;
     }
 
-    const logoValidationError = validateLogoUrlValue(logoUrl);
+    const logoValidationError = logoFile ? '' : validateLogoUrlValue(logoUrl);
     const descriptionValidationError = validateDescriptionValue(description);
     const preferredGamesValidationError = validatePreferredGamesValue(preferredGamesInput);
 
@@ -823,20 +827,42 @@ function TeamManagement() {
 
     setSavingAction('profile');
     try {
+      let nextLogoUrl = logoUrl.trim();
+      if (logoFile) {
+        setLogoUploadBusy(true);
+        const storedFile = await uploadImage(logoFile, 'teams');
+        nextLogoUrl = storedFile?.url || '';
+      }
+
       await updateTeamProfile(user, {
-        logoUrl: logoUrl.trim(),
+        logoUrl: nextLogoUrl,
         description: description.trim(),
         memberLimit: memberLimitInput === '' ? null : Number(memberLimitInput),
         preferredGames: preferredGamesInput.trim(),
       }, activeTeamId);
+      setLogoUploadBusy(false);
+      setLogoUrl(nextLogoUrl);
+      setLogoFile(null);
       setLogoUrlError('');
       setDescriptionError('');
       setPreferredGamesError('');
+      setProfileLogoBroken(false);
+      setTeamInfo((current) => ({
+        ...current,
+        teamLogoUrl: nextLogoUrl,
+        teamDescription: description.trim(),
+        memberLimit: memberLimitInput === '' ? null : Number(memberLimitInput),
+        preferredGames: preferredGamesInput
+          .split(',')
+          .map((game) => game.trim())
+          .filter(Boolean),
+      }));
       await refreshRoster(user, activeTeamId);
       showNotice('Team profile updated.');
     } catch (err) {
       setError(err?.message || 'Failed to update team profile.');
     } finally {
+      setLogoUploadBusy(false);
       setSavingAction('');
     }
   };
@@ -1319,13 +1345,29 @@ function TeamManagement() {
                         value={logoUrl}
                         onChange={(e) => {
                           setLogoUrl(e.target.value);
-                          setLogoUrlError(validateLogoUrlValue(e.target.value));
+                          setLogoUrlError(logoFile ? '' : validateLogoUrlValue(e.target.value));
                         }}
                         placeholder="https://..."
                         className={logoUrlError ? 'team-input-error' : ''}
                         aria-invalid={Boolean(logoUrlError)}
                       />
                       {logoUrlError ? <p className="error-text" style={{ marginTop: '0.35rem' }}>{logoUrlError}</p> : null}
+                    </label>
+                    <label className="team-inline-field">
+                      Upload team logo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          setLogoFile(e.target.files?.[0] ?? null);
+                          if (e.target.files?.[0]) {
+                            setLogoUrlError('');
+                          }
+                        }}
+                      />
+                      <small style={{ color: 'var(--muted)' }}>
+                        {logoFile ? `Selected: ${logoFile.name}. Uploaded file will override the URL above.` : 'Optional. Upload to store the logo in S3.'}
+                      </small>
                     </label>
                     <label className="team-inline-field">
                       Team description
@@ -1379,13 +1421,14 @@ function TeamManagement() {
                         className="primary-btn"
                         disabled={
                           savingAction === 'profile'
+                          || logoUploadBusy
                           || Boolean(memberLimitError)
                           || Boolean(logoUrlError)
                           || Boolean(descriptionError)
                           || Boolean(preferredGamesError)
                         }
                       >
-                        {savingAction === 'profile' ? 'Saving...' : 'Save Team Profile'}
+                        {logoUploadBusy ? 'Uploading logo...' : savingAction === 'profile' ? 'Saving...' : 'Save Team Profile'}
                       </button>
                     </div>
             </form>

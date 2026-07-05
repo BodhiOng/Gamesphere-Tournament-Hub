@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner';
 import { useTournament } from '../../context/TournamentContext';
 
+function isLikelyUploadedImageUrl(url) {
+  const value = String(url || '').trim();
+  return value.includes('amazonaws.com/') || value.includes('.s3.');
+}
+
 function Tournaments() {
   const { tournaments, isLoading } = useTournament();
   const navigate = useNavigate();
@@ -262,11 +267,18 @@ function Tournaments() {
                 ) : (
                   <div className="tournament-modal-image-placeholder">No image provided</div>
                 )}
+                {selectedTournament.image && isLikelyUploadedImageUrl(selectedTournament.image) ? (
+                  <p className="tournament-modal-image-link">
+                    Image link: <a href={selectedTournament.image} target="_blank" rel="noreferrer">Open uploaded image</a>
+                  </p>
+                ) : null}
               </article>
 
               <article className="tournament-modal-copy-panel">
                 <h4>Description</h4>
-                <p className="tournament-modal-description">{selectedTournament.description || 'No description available.'}</p>
+                <div className="tournament-modal-description" style={{ flex: '1 1 auto' }}>
+                  <p style={{ margin: 0 }}>{selectedTournament.description || 'No description available.'}</p>
+                </div>
               </article>
             </div>
 
