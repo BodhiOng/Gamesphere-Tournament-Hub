@@ -138,9 +138,6 @@ function Home() {
                     <li>Prize Pool: {tournament.prizePool || '-'}</li>
                     <li>Team Slots: {tournament.teamSlots || '-'}</li>
                   </ul>
-                  <Link to={`/tournaments/${tournament.publicId || tournament.id}`} className="primary-btn">
-                    View Details
-                  </Link>
                 </article>
               ))}
               <Link to="/tournaments" className="surface-card compact carousel-card carousel-action-card">

@@ -12,6 +12,7 @@
 
 # Root-level coverage and build logs
 /CodeCoverage/
+/publis
 /*.binlog
 
 .lsp
