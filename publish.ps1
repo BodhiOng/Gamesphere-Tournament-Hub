@@ -83,4 +83,20 @@ if (-not (Test-Path -LiteralPath $publishWwwroot)) {
 }
 Sync-FolderContents -Source $frontendDist -Destination $publishWwwroot
 
+Write-Host 'Copying EB deployment config into publish output...'
+$ebPlatformSource = Join-Path $backend '.platform'
+$ebExtensionsSource = Join-Path $backend '.ebextensions'
+
+if (Test-Path -LiteralPath $ebPlatformSource) {
+  Copy-Item -Path $ebPlatformSource -Destination (Join-Path $publishOut '.platform') -Recurse -Force
+} else {
+  Write-Warning "backend/.platform not found - skipping (EB hooks will not run on deploy)."
+}
+
+if (Test-Path -LiteralPath $ebExtensionsSource) {
+  Copy-Item -Path $ebExtensionsSource -Destination (Join-Path $publishOut '.ebextensions') -Recurse -Force
+} else {
+  Write-Warning "backend/.ebextensions not found - skipping (EB environment config will not be set)."
+}
+
 Write-Host "Done. Publish output is in $publishOut"
