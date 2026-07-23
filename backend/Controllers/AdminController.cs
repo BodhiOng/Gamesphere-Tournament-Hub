@@ -60,7 +60,8 @@ namespace Gamesphere.Controllers
                 query = query.Where(item =>
                     EF.Functions.ILike(item.PublicId, searchPattern)
                     || EF.Functions.ILike(item.Username, searchPattern)
-                    || EF.Functions.ILike(item.Email, searchPattern));
+                    || EF.Functions.ILike(item.Email, searchPattern)
+                    || EF.Functions.ILike(item.GamerTag, searchPattern));
             }
 
             var totalItems = await query.CountAsync();
@@ -74,6 +75,7 @@ namespace Gamesphere.Controllers
                     request.PublicId,
                     request.Username,
                     request.Email,
+                    request.GamerTag,
                     request.Status,
                     request.RequestedAt,
                     request.ReviewedAt

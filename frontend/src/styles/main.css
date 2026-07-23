@@ -2420,6 +2420,26 @@ td {
   margin-left: 0.35rem;
 }
 
+.auth-helper-text {
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.94rem;
+}
+
+.auth-alt-actions {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.auth-alt-link {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  min-height: 44px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+}
+
 /* Make primary buttons in auth forms full-width and center their text */
 .auth-card .primary-btn {
   width: 100%;

@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { loginUser, normalizeAuthUser, registerUser } from '../api/authApi';
+import { loginUser, normalizeAuthUser, recoverPassword as recoverPasswordRequest, registerUser } from '../api/authApi';
 import { getCurrentUserProfile } from '../api/userApi';
 
 const AuthContext = createContext(null);
@@ -179,6 +179,9 @@ export function AuthProvider({ children }) {
       },
       async register(payload) {
         return registerUser(payload);
+      },
+      async recoverPassword(payload) {
+        return recoverPasswordRequest(payload);
       },
       updateUser(nextUser) {
         syncStoredUser(nextUser);

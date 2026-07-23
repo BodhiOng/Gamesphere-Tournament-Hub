@@ -7,8 +7,10 @@ function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     username: '',
+    gamerTag: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
   const [error, setError] = useState('');
 
@@ -16,7 +18,7 @@ function Register() {
     const { name, value } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === 'username' ? value.toLowerCase() : value,
+      [name]: value,
     }));
   };
 
@@ -24,8 +26,18 @@ function Register() {
     event.preventDefault();
     setError('');
 
+    if (form.password !== form.confirmPassword) {
+      setError('Password confirmation does not match.');
+      return;
+    }
+
     try {
-      const response = await register(form);
+      const response = await register({
+        username: form.username,
+        gamerTag: form.gamerTag,
+        email: form.email,
+        password: form.password,
+      });
       navigate('/login', { state: { message: response.message } });
     } catch (err) {
       setError(err.message);
@@ -44,12 +56,20 @@ function Register() {
           <input name="username" autoCapitalize="none" onChange={onChange} value={form.username} required />
         </label>
         <label>
+          Gamer Tag
+          <input name="gamerTag" autoCapitalize="none" onChange={onChange} value={form.gamerTag} required />
+        </label>
+        <label>
           Email
           <input name="email" type="email" onChange={onChange} value={form.email} required />
         </label>
         <label>
           Password
-          <input name="password" type="password" onChange={onChange} value={form.password} required />
+          <input name="password" type="password" minLength={8} onChange={onChange} value={form.password} required />
+        </label>
+        <label>
+          Confirm password
+          <input name="confirmPassword" type="password" minLength={8} onChange={onChange} value={form.confirmPassword} required />
         </label>
         {error && <p className="error-text">{error}</p>}
         <button type="submit" className="primary-btn">Register</button>

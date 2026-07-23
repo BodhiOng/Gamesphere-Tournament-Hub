@@ -8,6 +8,7 @@ import Leaderboards from '../pages/Leaderboards/Leaderboards';
 import Login from '../pages/Login/Login';
 import MatchSchedule from '../pages/MatchSchedule/MatchSchedule';
 import Profile from '../pages/Profile/Profile';
+import RecoverPassword from '../pages/RecoverPassword/RecoverPassword';
 import Register from '../pages/Register/Register';
 import TeamManagement from '../pages/TeamManagement/TeamManagement';
 import TournamentDetails from '../pages/TournamentDetails/TournamentDetails';
@@ -94,6 +95,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/recover-password" element={<RecoverPassword />} />
 
       <Route element={<MainLayout />}>
         <Route path="/" element={<AdminHomeRedirect />} />

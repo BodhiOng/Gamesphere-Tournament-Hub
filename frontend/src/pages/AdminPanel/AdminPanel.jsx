@@ -390,7 +390,13 @@ function AdminPanel() {
 
   const formatDate = (iso) => {
     try {
-      return new Date(iso).toLocaleString();
+      return new Date(iso).toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
     } catch {
       return iso || '-';
     }
@@ -850,13 +856,13 @@ function AdminPanel() {
           <div style={{ marginTop: '1.25rem' }}>
             <h4 style={{ marginBottom: '0.5rem' }}>User account requests</h4>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
-              <input
-                type="search"
-                value={requestSearch}
-                onChange={(e) => setRequestSearch(e.target.value)}
-                placeholder="Search by ID, username, or email"
-                style={{ padding: '0.45rem 0.6rem', minWidth: '280px' }}
-              />
+                <input
+                  type="search"
+                  value={requestSearch}
+                  onChange={(e) => setRequestSearch(e.target.value)}
+                  placeholder="Search by ID, username, gamer tag, or email"
+                  style={{ padding: '0.45rem 0.6rem', minWidth: '280px' }}
+                />
               <select value={requestStatusFilter} onChange={(e) => setRequestStatusFilter(e.target.value)} style={{ padding: '0.45rem 0.6rem' }}>
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
@@ -879,6 +885,7 @@ function AdminPanel() {
                       <tr>
                         <th>ID</th>
                         <th>Username</th>
+                        <th>Gamer Tag</th>
                         <th>Email</th>
                         <th>Requested</th>
                         <th>Create as admin</th>
@@ -889,13 +896,20 @@ function AdminPanel() {
                     <tbody>
                       {requests.map((req) => {
                         const statusLabel = getRequestStatusLabel(req.status);
-                        const requestedAt = req.requestedAt ? new Date(req.requestedAt).toLocaleString() : '-';
+                        const requestedAt = req.requestedAt ? new Date(req.requestedAt).toLocaleString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }) : '-';
                         const requestId = req.publicId || req.id;
                         const createAsAdmin = Boolean(requestAdminSelections[requestId]);
                         return (
                           <tr key={requestId}>
                             <td style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{requestId}</td>
                             <td>{req.username}</td>
+                            <td>{req.gamerTag || '-'}</td>
                             <td>{req.email}</td>
                             <td>{requestedAt}</td>
                             <td>
@@ -1114,7 +1128,13 @@ function AdminPanel() {
                   </thead>
                   <tbody>
                     {reports.map((report) => {
-                      const createdAtLabel = report.createdAt ? new Date(report.createdAt).toLocaleString() : '-';
+                      const createdAtLabel = report.createdAt ? new Date(report.createdAt).toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }) : '-';
                       const isResolved = String(report.status || '').toLowerCase() === 'resolved';
                       const suspendInputValue = reportSuspendUntil[report.id] || '';
 

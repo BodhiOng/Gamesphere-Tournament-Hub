@@ -32,9 +32,10 @@ function Login() {
     <main className="auth-shell">
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="auth-top-actions">
-          <NavLink to="/" className="inline-link">← Home</NavLink>
+          <NavLink to="/" className="inline-link">&lt;- Home</NavLink>
         </div>
         <h2>Welcome back, contender</h2>
+        <p className="auth-helper-text">Sign in to continue, or use the actions below to create an account or recover your password.</p>
         {location.state?.message && <p className="success-text">{location.state.message}</p>}
         <label>
           Email
@@ -46,7 +47,10 @@ function Login() {
         </label>
         {error && <p className="error-text">{error}</p>}
         <button type="submit" className="primary-btn">Log in</button>
-        <p className="signup-prompt">Not a user yet? <NavLink to="/register">Create account</NavLink></p>
+        <div className="auth-alt-actions">
+          <NavLink to="/recover-password" className="ghost-btn auth-alt-link">Recover password</NavLink>
+          <NavLink to="/register" className="ghost-btn auth-alt-link">Create account</NavLink>
+        </div>
       </form>
     </main>
   );

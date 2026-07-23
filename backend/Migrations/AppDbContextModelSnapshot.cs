@@ -34,6 +34,10 @@ namespace Gamesphere.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("GamerTag")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -394,6 +398,7 @@ namespace Gamesphere.Migrations
 
                     b.HasIndex("PublicId")
                         .IsUnique();
+
                     b.ToTable("Users");
                 });
 

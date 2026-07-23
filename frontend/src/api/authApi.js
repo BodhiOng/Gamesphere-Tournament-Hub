@@ -30,3 +30,7 @@ export async function loginUser({ email, password }) {
 export async function registerUser(payload) {
   return requestJson('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) });
 }
+
+export async function recoverPassword(payload) {
+  return requestJson('/api/auth/recover-password', { method: 'POST', body: JSON.stringify(payload) });
+}
